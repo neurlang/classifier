@@ -53,6 +53,20 @@ If your solution is found, you can slowly decrease the fraction to get smaller s
 
 If you are annoyed by Backtracking printed too often, then increase the Printer
 
+##R elated algorithms
+
+* Locality Sensitive Hashing (LSH): LSH is a technique used for solving the approximate or exact Near Neighbor Search problem in high-dimensional spaces. It's often employed in binary classification tasks, where it can be used to efficiently find similar items or data points.
+* Logistic Regression: Despite its name, logistic regression is a linear model for binary classification. It models the probability that a given sample belongs to a particular class using the logistic function.
+* Support Vector Machines (SVM): SVM is a powerful algorithm for binary classification that finds the hyperplane that best separates the classes while maximizing the margin between them. It can handle both linear and non-linear classification tasks through the use of different kernel functions.
+* Decision Trees: Decision trees recursively split the feature space into regions, with each region corresponding to a specific class label. These splits are chosen to maximize the information gain or minimize impurity at each step.
+* Random Forests: A random forest is an ensemble method that constructs multiple decision trees during training and outputs the mode of the classes (classification) or mean prediction (regression) of the individual trees.
+* Gradient Boosting Machines (GBM): GBM builds an ensemble of weak learners (typically decision trees) sequentially, with each new learner focusing on the mistakes of the previous ones. It combines their predictions to produce a strong predictive model.
+* K-Nearest Neighbors (KNN): KNN is a non-parametric method that classifies a sample based on the majority class among its k nearest neighbors in the feature space. It's simple but can be computationally expensive, especially with large datasets.
+* Neural Networks: Neural networks, particularly deep learning models, have gained popularity for binary classification tasks due to their ability to automatically learn complex patterns from data. Common architectures include feedforward neural networks, convolutional neural networks (CNNs), and recurrent neural networks (RNNs).
+* Naive Bayes: Naive Bayes classifiers are based on Bayes' theorem and assume that the features are conditionally independent given the class label. Despite their simplicity and the "naive" assumption, they often perform well in practice, especially with text classification tasks.
+* Adaptive Boosting (AdaBoost): AdaBoost is another ensemble method that combines multiple weak classifiers (often decision trees) to create a strong classifier. It iteratively adjusts the weights of misclassified samples to focus on the difficult cases.
+
+
 ## License
 
 Apache 2.0 or Public Domain at your option

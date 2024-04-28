@@ -20,7 +20,7 @@ func main() {
 	h.DeadlineMs = 1000
 	h.DeadlineRetry = 3
 
-	// affects how fast is the modulo reduced (by 19/20 and then by -1)
+	// affects how fast is the modulo reduced (by 20/21 and then by -1)
 	h.Numerator = 20
 	h.Denominator = 21
 	h.Subtractor = 1

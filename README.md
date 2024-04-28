@@ -7,3 +7,7 @@
 * Maximum problem size is limited to 2 x 65536 values (2 sets of size 65536)
   * Big problems wont fit to ram likely
 * The resulting models are very fast (they are hash based)
+
+## License
+
+Apache 2.0 or Public Domain at your option

@@ -53,7 +53,7 @@ If your solution is found, you can slowly decrease the fraction to get smaller s
 
 If you are annoyed by Backtracking printed too often, then increase the Printer
 
-##R elated algorithms
+## Related algorithms
 
 * Locality Sensitive Hashing (LSH): LSH is a technique used for solving the approximate or exact Near Neighbor Search problem in high-dimensional spaces. It's often employed in binary classification tasks, where it can be used to efficiently find similar items or data points.
 * Logistic Regression: Despite its name, logistic regression is a linear model for binary classification. It models the probability that a given sample belongs to a particular class using the logistic function.

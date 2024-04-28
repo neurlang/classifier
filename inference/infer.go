@@ -1,4 +1,4 @@
-// Package Hash implements the inference stage of the Neurlang classifier
+// Package Inference implements the inference stage of the Neurlang classifier
 package inference
 
 import "github.com/neurlang/classifier/hash"

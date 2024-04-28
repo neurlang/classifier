@@ -1,3 +1,4 @@
+// Package Learning implements the learning stage of the Neurlang classifier
 package learning
 
 import "sync"

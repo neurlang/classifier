@@ -45,17 +45,16 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) int {
 	var max uint32 = h.InitialModulo
 	var maxl = uint16(len(d[0]))
 	var maxmax uint32 = h.InitialModulo
-	var deadline = 2
 
 looop:
 	for max <= maxmax {
 		var sol = h.Reduce(max, maxl, &alphabet)
 		if sol[1] == 0 {
-			if deadline == 0 {
-				return h.InitialLimit
+			if len(sols) > 0 && sols[len(sols)-1][1] > max + 1 {
+				max ++
+				continue looop
 			}
-			deadline--
-			continue looop
+			return h.InitialLimit
 		}
 		var set0i = make(map[uint32]struct{})
 		var set1i = make(map[uint32]struct{})
@@ -86,8 +85,7 @@ looop:
 		}
 
 		maxl = uint16(len(set0i))
-		set0i = nil
-		set1i = nil
+
 
 		sols = append(sols, sol)
 
@@ -120,6 +118,9 @@ looop:
 			}
 			return len(sols)
 		}
+
+		set0i = nil
+		set1i = nil
 
 		max *= h.Numerator
 		max /= h.Denominator

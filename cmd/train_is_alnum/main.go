@@ -10,7 +10,8 @@ func main() {
 	var dataset = isalnum.Dataset
 
 	h.Threads = runtime.NumCPU()
-	h.InitialModulo = 4096 + 1 // depends on problem size
+	//affects initial modulo
+	h.Factor = 6
 
 	// shuffle before solving attempts
 	h.Shuffle = true
@@ -20,10 +21,8 @@ func main() {
 	h.DeadlineMs = 1000
 	h.DeadlineRetry = 3
 
-	// affects how fast is the modulo reduced (by 20/21 and then by -1)
-	h.Numerator = 20
-	h.Denominator = 21
-	h.Subtractor = 1
+	// additional modulo reduction, affects solution size
+	h.Subtractor = 6
 
 	// reduce Backtracking printing on the log
 	h.Printer = 70

@@ -16,15 +16,13 @@ type HyperParameters struct {
 	Shuffle bool // whether to shuffle the set before each learning attempt
 	Seed    bool // seed prng using true rng
 
-	Printer       uint16 // print when hit conflicting solution of at least this large size
+	Printer       uint32 // print when hit conflicting solution of at least this large size
 	DeadlineMs    int    // deadline in milliseconds to throw away incomplete solution attempt
 	DeadlineRetry int    // retry from scratch after this many failed deadlines
 
-	InitialModulo uint32 // maxmax
+	Factor uint32
 
-	Numerator   uint32 // step
-	Subtractor  uint32 // stesub
-	Denominator uint32 // steq
+	Subtractor uint32 // stesub
 
 	InitialLimit int // initial limit of how small the solution must be to be saved to disk
 

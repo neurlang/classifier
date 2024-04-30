@@ -13,8 +13,8 @@ import "github.com/neurlang/classifier/hash"
 
 type modulo_t = uint32
 
-func (h *HyperParameters) Training(d datasets.Dataset) {
-	var sd = datasets.SplitDataset(d)
+func (h *HyperParameters) Training(d datasets.Splitter) {
+	var sd = d.Split()
 	sd = datasets.BalanceDataset(sd)
 
 	if h.Seed {

@@ -58,6 +58,9 @@ If you are annoyed by Backtracking printed too often, then increase the Printer
 * Naive Bayes: Naive Bayes classifiers are based on Bayes' theorem and assume that the features are conditionally independent given the class label. Despite their simplicity and the "naive" assumption, they often perform well in practice, especially with text classification tasks.
 * Adaptive Boosting (AdaBoost): AdaBoost is another ensemble method that combines multiple weak classifiers (often decision trees) to create a strong classifier. It iteratively adjusts the weights of misclassified samples to focus on the difficult cases.
 
+## Compatibility
+
+Works starting with golang 1.13
 
 ## License
 

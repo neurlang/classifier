@@ -26,5 +26,7 @@ type HyperParameters struct {
 
 	InitialLimit int // initial limit of how small the solution must be to be saved to disk
 
+	DisableProgressBar bool // disable progress bar
+
 	l *log.Logger
 }

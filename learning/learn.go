@@ -1,6 +1,7 @@
 // Package Learning implements the learning stage of the Neurlang classifier
 package learning
 
+import "fmt"
 import "sync"
 import "math/rand"
 import crypto_rand "crypto/rand"
@@ -29,6 +30,22 @@ func (h *HyperParameters) Training(d datasets.Dataset) {
 	}
 }
 
+func progressBar(progress, width int) string {
+	progressBar := ""
+	for i := 0; i < progress; i++ {
+		progressBar += "="
+	}
+	return progressBar
+}
+
+func emptySpace(space int) string {
+	emptySpace := ""
+	for i := 0; i < space; i++ {
+		emptySpace += " "
+	}
+	return emptySpace
+}
+
 func (h *HyperParameters) Solve(d datasets.SplittedDataset) int {
 
 	var alphabet = [2][]uint32{
@@ -46,10 +63,17 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) int {
 	var sols [][2]uint32
 	var fromto [][2]uint32
 	var maxl = modulo_t(len(d[0]))
+	var maxmaxl = maxl
 	var max uint32 = uint32(uint64(maxl) * uint64(maxl) / uint64(h.Factor))
 	var maxmax uint32 = max
+	const progressBarWidth = 40
 looop:
 	for max <= maxmax {
+		if !h.DisableProgressBar {
+			progress := progressBarWidth - int(maxl * progressBarWidth / maxmaxl)
+			percent := 100 - int(maxl * 100 / maxmaxl)
+			fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
+		}
 		var sol = h.Reduce(max, maxl, &alphabet)
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -184,7 +208,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					if set[(uint32(i)%max)] != byte(0) {
 						if set[(uint32(i)%max)] == (byte((j^1)&1) + 1) {
 							if modulo_t(j) > h.Printer {
-								println("Backtracking:", j)
+								if h.DisableProgressBar {
+									println("Backtracking:", j)
+								}
 							}
 							continue outer
 						}
@@ -206,7 +232,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				if set[(uint32(i)%max)] != byte(0) {
 					if set[(uint32(i)%max)] == (byte((j^1)&1) + 1) {
 						if modulo_t(j) > h.Printer {
-							println("Backtracking:", j)
+							if h.DisableProgressBar {
+								println("Backtracking:", j)
+							}
 						}
 						continue outer
 					}
@@ -234,7 +262,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				//panic(tt)
 				if len(set0) == len(set1) {
 					mutex.Lock()
-					println("Size: ", len(set0), "Modulo:", max)
+					if h.DisableProgressBar {
+						println("Size: ", len(set0), "Modulo:", max)
+					}
 					//println("{", s, ",", max, "}, // ", len(set0))
 					if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
 						out[0] = s
@@ -263,7 +293,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		out[0] = ^uint32(0)
 		out[1] = ^uint32(0)
 		mutex.Unlock()
-		println("Deadline")
+		if h.DisableProgressBar {
+			println("Deadline")
+		}
 	}
 
 	return

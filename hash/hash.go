@@ -9,11 +9,11 @@ func Hash(n uint32, s uint32, max uint32) uint32 {
 	// hashing stage, use xor shift with prime coefficients
 	m ^= m << 2
 	m ^= m << 3
-	m ^= m << 5
-	m ^= m << 7
+	m ^= m >> 5
+	m ^= m >> 7
 	m ^= m << 11
 	m ^= m << 13
-	m ^= m << 17
+	m ^= m >> 17
 	m ^= m << 19
 
 	// modular stage

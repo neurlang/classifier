@@ -45,6 +45,73 @@ If your solution is found, you can slowly decrease the Subtractor to get smaller
 
 If you are annoyed by Backtracking printed too often, then increase the Printer
 
+## Multi classifier
+
+You can also train a N-way (instead of binary) classifier. Simply use the Datamap.
+Datamap is `map[uint16][uint16]` internally. You can fill it with custom data and then
+initialize the hyperparameters and train as usual.
+
+```
+	h.Training(datamap)
+```
+
+Multi classifier also needs the programBits variable:
+
+```
+
+type Program [][2]uint32
+
+func (p Program) Len() int {
+	return len(p)
+}
+func (p Program) Get(n int) (uint32, uint32) {
+	return (p)[n][0], (p)[n][1]
+}
+func (p Program) Bits() byte {
+	return programBits
+}
+```
+
+Then init and use the model:
+
+```
+	var model = Program(program)
+
+	var predicted = inference.Uint16Infer(input, model)
+```
+
+One important thing to keep in mind, if your multi way Datamap contains few equivalence
+groups and the values are sparse, you can get much better performing model if you reduce
+your datamap.
+
+### Reducing the datamap
+
+You will be actually training two models, the first is trained as:
+```
+	h.Training(datamap.Reduce(true))
+```
+This is the first model and takes longer to train. Then you train the second model:
+
+```
+	h.Training(datamap.Reduce(false))
+```
+Finally, during inference, supply the bits for each model:
+
+```
+func (p Program) Bits() byte {
+	if &p[0] == &program0[0] {
+		return program0Bits
+	}
+	return program1Bits
+}
+```
+And you can do inference:
+
+```
+	var predicted = inference.Uint16Infer2(input, model1, model0)
+```
+
+
 ## Related algorithms
 
 * Locality Sensitive Hashing (LSH): LSH is a technique used for solving the approximate or exact Near Neighbor Search problem in high-dimensional spaces. It's often employed in binary classification tasks, where it can be used to efficiently find similar items or data points.

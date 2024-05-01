@@ -16,6 +16,9 @@ func Hash(n uint32, s uint32, max uint32) uint32 {
 	m ^= m >> 17
 	m ^= m << 19
 
+	// mixing stage 2, mix input with salt using addition
+	m += s
+
 	// modular stage
 	// to force output in range 0 to max-1 we could do regular modulo
 	// however, the faster multiply shift trick by Daniel Lemire is used instead

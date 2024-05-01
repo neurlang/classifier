@@ -50,21 +50,6 @@ func (d Datamap) Split() (o SplittedDataset) {
 	return
 }
 
-// SplitN splits datamap into a set for each equivalence group
-func (d Datamap) SplitN() (o SplittedNDataset) {
-	var used = make(map[uint16]int)
-	for k, v := range d {
-		if n, ok := used[v]; ok {
-			o[n][uint32(k)] = struct{}{}
-			continue
-		}
-		used[v] = len(o)
-		var m = make(map[uint32]struct{})
-		m[uint32(k)] = struct{}{}
-		o = append(o, m)
-	}
-	return
-}
 
 // Reduce reduces the datamap
 func (d Datamap) Reduce(whole bool) (o Datamap) {
@@ -104,11 +89,6 @@ type Splitter interface {
 
 type SplittedDataset [2]map[uint32]struct{}
 
-type SplittNer interface {
-	SplitN() (o SplittedNDataset)
-}
-
-type SplittedNDataset []map[uint32]struct{}
 
 // BalanceDataset fills the smaller set with random number until it matches the bigger set
 func BalanceDataset(d SplittedDataset) SplittedDataset {
@@ -130,36 +110,4 @@ func BalanceDataset(d SplittedDataset) SplittedDataset {
 	return d
 }
 
-// BalanceDatasetN fills the smaller set with random number until it matches the bigger set
-func BalanceDatasetN(d SplittedNDataset) SplittedNDataset {
-	var biggest int
-	var different bool
-	for j := range d {
-		if len(d[j]) > biggest {
-			biggest = len(d[j])
-		}
-		if len(d[j]) != len(d[0]) {
-			different = true
-		}
-	}
 
-	if !different {
-		return d
-	}
-	for j := range d {
-	outer:
-		for len(d[j]) < biggest {
-			var w = rand.Uint32()
-			for i := range d {
-				if i == j {
-					continue
-				}
-				if _, ok := d[i][w]; ok {
-					continue outer
-				}
-			}
-			d[j][w] = struct{}{}
-		}
-	}
-	return d
-}

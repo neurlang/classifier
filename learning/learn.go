@@ -15,7 +15,6 @@ type modulo_t = uint32
 
 func (h *HyperParameters) Training(d datasets.Splitter) {
 	var sd = d.Split()
-	sd = datasets.BalanceDataset(sd)
 
 	if h.Seed {
 		var b [8]byte
@@ -25,9 +24,37 @@ func (h *HyperParameters) Training(d datasets.Splitter) {
 		}
 	}
 
-	for {
-		h.InitialLimit = h.Solve(sd)
+	sd = datasets.BalanceDataset(sd)
+
+	var backup = h.InitialLimit
+
+	h.InitialLimit = h.SolveN(sd[:])
+	for !h.EndWhenSolved {
+		h.InitialLimit = h.SolveN(sd[:])
 	}
+	h.InitialLimit = backup
+}
+
+func (h *HyperParameters) TrainingN(d datasets.SplittNer) {
+	var sd = d.SplitN()
+
+	if h.Seed {
+		var b [8]byte
+		_, err := crypto_rand.Read(b[:])
+		if err == nil {
+			rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
+		}
+	}
+
+	sd = datasets.BalanceDatasetN(sd)
+
+	var backup = h.InitialLimit
+
+	h.InitialLimit = h.SolveN(sd)
+	for !h.EndWhenSolved {
+		h.InitialLimit = h.SolveN(sd)
+	}
+	h.InitialLimit = backup
 }
 
 func progressBar(progress, width int) string {
@@ -46,18 +73,24 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
-func (h *HyperParameters) Solve(d datasets.SplittedDataset) int {
+func (h *HyperParameters) SolveN(d datasets.SplittedNDataset) int {
 
-	var alphabet = [2][]uint32{
-		make([]uint32, 0, len(d[0])),
-		make([]uint32, 0, len(d[1])),
-	}
+	var bitsi byte
 
-	for v := range d[0] {
-		alphabet[0] = append(alphabet[0], v)
-	}
-	for v := range d[1] {
-		alphabet[1] = append(alphabet[1], v)
+	var alphabet [][]uint32
+	for n := range d {
+		var bits uint16
+		alphabet = append(alphabet, make([]uint32, 0, len(d[n])))
+
+		for v := range d[n] {
+			alphabet[n] = append(alphabet[n], v)
+			bits |= uint16(v >> 16)
+		}
+		if n == 0 {
+			for ; bits>0; bits>>=1 {
+				bitsi++
+			}
+		}
 	}
 
 	var sols [][2]uint32
@@ -74,7 +107,13 @@ looop:
 			percent := 100 - int(maxl * 100 / maxmaxl)
 			fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
 		}
-		var sol = h.Reduce(max, maxl, &alphabet)
+		var sol [2]uint32
+		if len(d) == 2 {
+			var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
+			sol = h.Reduce(max, maxl, &alphabet2)
+		} else {
+			sol = h.ReduceN(max, maxl, alphabet)
+		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
 				max++
@@ -129,6 +168,7 @@ looop:
 
 			if len(sols) < h.InitialLimit {
 				if h.l != nil {
+					h.l.Println("var programBits byte = ", bitsi)
 					h.l.Println("var program = [][2]uint32{")
 					var maxx uint32
 					for i, v := range sols {
@@ -275,6 +315,153 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				} else {
 					continue outer
 				}
+			}
+		}(byte(t))
+	}
+	mutex.RLock()
+	var deadline = h.DeadlineMs
+	for out[0] == 0 && out[1] == 0 && deadline > 0 {
+		mutex.RUnlock()
+		time.Sleep(time.Millisecond)
+		deadline--
+		mutex.RLock()
+	}
+	off = out
+	mutex.RUnlock()
+	if deadline == 0 {
+		mutex.Lock()
+		out[0] = ^uint32(0)
+		out[1] = ^uint32(0)
+		mutex.Unlock()
+		if h.DisableProgressBar {
+			println("Deadline")
+		}
+	}
+
+	return
+}
+
+
+func (h *HyperParameters) ReduceN(max uint32, maxl modulo_t, alphabet [][]uint32) (off [2]uint32) {
+	var out [2]uint32
+	var N = uint32(len(alphabet))
+	mutex.Lock()
+	where++
+	mutex.Unlock()
+	if h.Shuffle {
+		for n := range alphabet {
+			rand.Shuffle(int(maxl), func(i, j int) { alphabet[n][i], alphabet[n][j] = alphabet[n][j], alphabet[n][i] })
+		}
+	}
+	for t := 1; t < h.Threads; t++ {
+		go func(tt byte) {
+			mutex.RLock()
+			var my_where = where
+			mutex.RUnlock()
+		outer:
+			for s := uint32(tt); true; s += uint32(h.Threads) {
+				mutex.RLock()
+				if my_where != where || out[0] != 0 || out[1] != 0 {
+					mutex.RUnlock()
+					return
+				} else {
+					mutex.RUnlock()
+				}
+				var letter = make([][]uint32, N, N)
+				for n := range alphabet {
+					letter[n] = make([]uint32, maxl, maxl)
+				}
+				var set = make([]byte, max, max)
+
+				var i uint32 = 0
+				var v = alphabet[N-1][i]
+				for j := uint32(0); j < N*uint32(maxl); j++ {
+					if letter[j%N][i%uint32(maxl)] != 0 {
+						letter[j%N][i%uint32(maxl)] = ((uint32(i) % max) + 1)
+					}
+					if set[(uint32(i)%max)] != byte(0) {
+						if set[(uint32(i)%max)] != (byte((j)%N) + 1) {
+							if modulo_t(j) > h.Printer {
+								if h.DisableProgressBar {
+									println("Backtracking:", j)
+								}
+							}
+							continue outer
+						}
+					}
+
+					set[(uint32(i) % max)] = byte(j%N) + 1
+					//println("at", v, i)
+					i = hash.Hash(v, s, max)
+					v = alphabet[j%N][i%uint32(maxl)]
+					//fmt.Println(letter)
+
+				}
+				i = hash.Hash(v, s, max)
+
+				var j = uint32(N-1)
+				if letter[j%N][i%uint32(maxl)] != 0 {
+					letter[j%N][i%uint32(maxl)] = ((uint32(i) % max) + 1)
+				}
+				if set[(uint32(i)%max)] != byte(0) {
+					if set[(uint32(i)%max)] != (byte((j)%N) + 1) {
+						if modulo_t(j) > h.Printer {
+							if h.DisableProgressBar {
+								println("Backtracking:", j)
+							}
+						}
+						continue outer
+					}
+				}
+				var sets []map[uint32]struct{}
+				for n := range alphabet {
+					sets[n] = make(map[uint32]struct{})
+				}
+				for j := modulo_t(0); j < maxl; j++ {
+
+					sets[0][hash.Hash(alphabet[0][j], s, max)] = struct{}{}
+					//println(tt,"sol=",alphabet[0][j], hash.Hash(alphabet[0][j], s, max))
+
+				}
+				//println(tt)
+				for n := uint32(1); n < N; n++ {
+					for j := modulo_t(0); j < maxl; j++ {
+
+						var val = hash.Hash(alphabet[1][j], s, max)
+						sets[n][val] = struct{}{}
+
+						for m := uint32(0); m < N; m++ {
+							if m == n {
+								continue
+							}
+							if _, ok := sets[m][val]; ok {
+								//panic("algorithm bad")
+								continue outer
+							}
+						}
+
+
+						//println(tt,"sol=",alphabet[1][j], hash.Hash(alphabet[1][j], s, max))
+
+					}
+				}
+				//panic(tt)
+				for n := range sets {
+					if len(sets[0]) != len(sets[n]) {
+						continue outer
+					}
+				}
+				mutex.Lock()
+				if h.DisableProgressBar {
+					println("Size: ", len(sets[0]), "Modulo:", max)
+				}
+				//println("{", s, ",", max, "}, // ", len(set0))
+				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
+					out[0] = s
+					out[1] = uint32(max)
+				}
+				mutex.Unlock()
+				return
 			}
 		}(byte(t))
 	}

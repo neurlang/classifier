@@ -28,5 +28,7 @@ type HyperParameters struct {
 
 	DisableProgressBar bool // disable progress bar
 
+	EndWhenSolved bool // end when solved
+
 	l *log.Logger
 }

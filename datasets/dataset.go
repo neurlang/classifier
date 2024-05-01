@@ -2,10 +2,7 @@
 package datasets
 
 import "math/rand"
-
-type Splitter interface {
-	Split() (o SplittedDataset)
-}
+import "sort"
 
 type Dataset map[uint32]bool
 
@@ -53,9 +50,65 @@ func (d Datamap) Split() (o SplittedDataset) {
 	return
 }
 
+// SplitN splits datamap into a set for each equivalence group
+func (d Datamap) SplitN() (o SplittedNDataset) {
+	var used = make(map[uint16]int)
+	for k, v := range d {
+		if n, ok := used[k]; ok {
+			o[n][uint32(v)] = struct{}{}
+			continue
+		}
+		used[k] = len(o)
+		var m = make(map[uint32]struct{})
+		m[uint32(v)] = struct{}{}
+		o = append(o, m)
+	}
+	return
+}
 
+// Reduce reduces the datamap
+func (d Datamap) Reduce(whole bool) (o Datamap) {
+	o = make(Datamap)
+	var exists = make(map[uint16]struct{})
+	var arr []uint16
+	for _, v := range d {
+		if _, ok := exists[v]; ok {
+			continue
+		}
+		arr = append(arr, v)
+		exists[v] = struct{}{}
+	}
+	sort.Slice(arr, func (i, j int) bool {
+		return arr[i] < arr[j]
+	})
+	if whole {
+		for k, v := range d {
+			for i := range arr {
+				if arr[i] == v {
+					o[k] = uint16(i)
+					break
+				}
+			}
+		}
+	} else {
+		for i, v := range arr {
+			o[uint16(i)] = v
+		}
+	}
+	return
+}
+
+type Splitter interface {
+	Split() (o SplittedDataset)
+}
 
 type SplittedDataset [2]map[uint32]struct{}
+
+type SplittNer interface {
+	SplitN() (o SplittedNDataset)
+}
+
+type SplittedNDataset []map[uint32]struct{}
 
 // BalanceDataset fills the smaller set with random number until it matches the bigger set
 func BalanceDataset(d SplittedDataset) SplittedDataset {
@@ -64,20 +117,48 @@ func BalanceDataset(d SplittedDataset) SplittedDataset {
 	}
 	for len(d[0]) < len(d[1]) {
 		var w = rand.Uint32()
-		for _, ok := d[1][w]; !ok; w++ {
+		if _, ok := d[1][w]; !ok {
 			d[0][w] = struct{}{}
-			if len(d[1]) == len(d[0]) {
-				break
-			}
 		}
 	}
 	for len(d[1]) < len(d[0]) {
 		var w = rand.Uint32()
-		for _, ok := d[0][w]; !ok; w++ {
+		if _, ok := d[0][w]; !ok {
 			d[1][w] = struct{}{}
-			if len(d[1]) == len(d[0]) {
-				break
+		}
+	}
+	return d
+}
+
+// BalanceDatasetN fills the smaller set with random number until it matches the bigger set
+func BalanceDatasetN(d SplittedNDataset) SplittedNDataset {
+	var biggest int
+	var different bool
+	for j := range d {
+		if len(d[j]) > biggest {
+			biggest = len(d[j])
+		}
+		if len(d[j]) != len(d[0]) {
+			different = true
+		}
+	}
+
+	if !different {
+		return d
+	}
+	for j := range d {
+	outer:
+		for len(d[j]) < biggest {
+			var w = rand.Uint32()
+			for i := range d {
+				if i == j {
+					continue
+				}
+				if _, ok := d[i][w]; ok {
+					continue outer
+				}
 			}
+			d[j][w] = struct{}{}
 		}
 	}
 	return d

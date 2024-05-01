@@ -54,13 +54,13 @@ func (d Datamap) Split() (o SplittedDataset) {
 func (d Datamap) SplitN() (o SplittedNDataset) {
 	var used = make(map[uint16]int)
 	for k, v := range d {
-		if n, ok := used[k]; ok {
-			o[n][uint32(v)] = struct{}{}
+		if n, ok := used[v]; ok {
+			o[n][uint32(k)] = struct{}{}
 			continue
 		}
-		used[k] = len(o)
+		used[v] = len(o)
 		var m = make(map[uint32]struct{})
-		m[uint32(v)] = struct{}{}
+		m[uint32(k)] = struct{}{}
 		o = append(o, m)
 	}
 	return

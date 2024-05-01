@@ -27,10 +27,11 @@ func (h *HyperParameters) Training(d datasets.Splitter) {
 	sd = datasets.BalanceDataset(sd)
 
 	var backup = h.InitialLimit
+	var unsolved bool
 
-	h.InitialLimit = h.SolveN(sd[:])
-	for !h.EndWhenSolved {
-		h.InitialLimit = h.SolveN(sd[:])
+	h.InitialLimit, unsolved = h.SolveN(sd[:])
+	for !h.EndWhenSolved || unsolved {
+		h.InitialLimit, unsolved = h.SolveN(sd[:])
 	}
 	h.InitialLimit = backup
 }
@@ -49,10 +50,11 @@ func (h *HyperParameters) TrainingN(d datasets.SplittNer) {
 	sd = datasets.BalanceDatasetN(sd)
 
 	var backup = h.InitialLimit
+	var unsolved bool
 
-	h.InitialLimit = h.SolveN(sd)
-	for !h.EndWhenSolved {
-		h.InitialLimit = h.SolveN(sd)
+	h.InitialLimit, unsolved = h.SolveN(sd)
+	for !h.EndWhenSolved || unsolved {
+		h.InitialLimit, unsolved = h.SolveN(sd)
 	}
 	h.InitialLimit = backup
 }
@@ -73,7 +75,7 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
-func (h *HyperParameters) SolveN(d datasets.SplittedNDataset) int {
+func (h *HyperParameters) SolveN(d datasets.SplittedNDataset) (int, bool) {
 
 	var bitsi byte
 
@@ -94,10 +96,9 @@ func (h *HyperParameters) SolveN(d datasets.SplittedNDataset) int {
 	}
 
 	var sols [][2]uint32
-	var fromto [][2]uint32
 	var maxl = modulo_t(len(d[0]))
 	var maxmaxl = maxl
-	var max uint32 = uint32(uint64(maxl) * uint64(maxl) / uint64(h.Factor))
+	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
 looop:
@@ -119,53 +120,73 @@ looop:
 				max++
 				continue looop
 			}
-			return h.InitialLimit
+			return h.InitialLimit, true
 		}
-		var set0i = make(map[uint32]struct{})
-		var set1i = make(map[uint32]struct{})
-		for i := modulo_t(0); i < maxl; i++ {
-			set0i[hash.Hash(alphabet[0][i], sol[0], uint32(sol[1]))] = struct{}{}
-			set1i[hash.Hash(alphabet[1][i], sol[0], uint32(sol[1]))] = struct{}{}
+		var sets = make([]map[uint32]struct{}, len(d), len(d))
+		for n := range d {
+			sets[n] = make(map[uint32]struct{})
 		}
 
-		{
+		for i := modulo_t(0); i < maxl; i++ {
+			for n := range d {
+				sets[n][hash.Hash(alphabet[n][i], sol[0], uint32(sol[1]))] = struct{}{}
+			}
+		}
+		var biggest int
+		for n := range d {
+			if len(sets[n]) > biggest {
+				biggest = len(sets[n])
+			}
+		}
+
+		for n := range d {
 			var i int
-			for v := range set0i {
-				if _, ok := set1i[v]; ok {
-					//panic("algorithm bad")
-					continue looop
+			for v := range sets[n] {
+				for m := range d {
+					if m == n {
+						continue
+					}
+					if _, ok := sets[m][v]; ok {
+						//panic("algorithm bad")
+						continue looop
+					}
 				}
 				alphabet[0][i] = v
 				i++
 			}
-			i = 0
-			for v := range set1i {
-				if _, ok := set0i[v]; ok {
-					//panic("algorithm bad")
-					continue looop
+			for i < biggest {
+				var v = rand.Uint32()
+				for m := range d {
+					if m == n {
+						continue
+					}
+					if _, ok := sets[m][v]; ok {
+						//panic("algorithm bad")
+						continue looop
+					}
 				}
-				alphabet[1][i] = v
+				alphabet[0][i] = v
 				i++
 			}
 		}
 
 		sols = append(sols, sol)
-		fromto = append(fromto, [2]uint32{maxl, modulo_t(len(set0i))})
 
-		maxl = modulo_t(len(set0i))
+		maxl = modulo_t(len(sets[0]))
 
 		if maxl < 2 {
-			for val0 := range set0i {
-				if (val0 & 1) == 1 {
-					continue looop
+			if len(d) == 2 {
+				for val0 := range sets[0] {
+					if (val0 & 1) == 1 {
+						continue looop
+					}
+				}
+				for val1 := range sets[1] {
+					if (val1 & 1) == 0 {
+						continue looop
+					}
 				}
 			}
-			for val1 := range set1i {
-				if (val1 & 1) == 0 {
-					continue looop
-				}
-			}
-
 			if len(sols) < h.InitialLimit {
 				if h.l != nil {
 					h.l.Println("var programBits byte = ", bitsi)
@@ -187,13 +208,12 @@ looop:
 			}
 			if len(sols) > h.InitialLimit {
 				println("SOLUTION SIZE is LIMIT ", len(sols))
-				return h.InitialLimit
+				return h.InitialLimit, true
 			}
-			return len(sols)
+			return len(sols), false
 		}
 
-		set0i = nil
-		set1i = nil
+		sets = nil
 
 		var sub = h.Subtractor
 
@@ -201,12 +221,12 @@ looop:
 			sub = maxl - 1
 		}
 
-		max = uint32(uint64(max) * (uint64(maxl-sub) * uint64(maxl-sub)) / (uint64(maxl) * uint64(maxl)))
+		max = uint32(uint64(max) * ((uint64(maxl-sub) * uint64(maxl-sub))) / (uint64(maxl) * uint64(maxl)))
 		if max == 0 {
 			max++
 		}
 	}
-	return h.InitialLimit
+	return h.InitialLimit, true
 }
 
 // where is used to kill threads when it increases
@@ -446,11 +466,13 @@ func (h *HyperParameters) ReduceN(max uint32, maxl modulo_t, alphabet [][]uint32
 					}
 				}
 				//panic(tt)
+/*
 				for n := range sets {
 					if len(sets[0]) != len(sets[n]) {
 						continue outer
 					}
 				}
+*/
 				mutex.Lock()
 				if h.DisableProgressBar {
 					println("Size: ", len(sets[0]), "Modulo:", max)

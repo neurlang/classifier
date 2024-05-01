@@ -10,16 +10,7 @@ type Model interface {
 }
 
 func BoolInfer(input uint32, m Model) bool {
-	var maxx uint32
-	for i := 0; i < m.Len(); i++ {
-		var s, max = m.Get(i)
-		if i == 0 {
-			maxx += max
-		} else {
-			maxx -= max
-		}
-		input = hash.Hash(input, s, maxx)
-	}
+	input = Uint32Infer(input, m)
 	input &= 1
 	return input != 0
 }
@@ -46,4 +37,18 @@ func Uint16Infer(command uint16, m Model) (out uint16) {
 		}
 	}
 	return
+}
+
+func Uint32Infer(input uint32, m Model) uint32 {
+	var maxx uint32
+	for i := 0; i < m.Len(); i++ {
+		var s, max = m.Get(i)
+		if i == 0 {
+			maxx += max
+		} else {
+			maxx -= max
+		}
+		input = hash.Hash(input, s, maxx)
+	}
+	return input
 }

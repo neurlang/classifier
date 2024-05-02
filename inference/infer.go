@@ -19,16 +19,16 @@ func Uint16Infer2(input uint16, m0, m1 Model) (out uint16) {
 	return Uint16Infer(Uint16Infer(input, m0), m1)
 }
 func Uint16Infer(command uint16, m Model) (out uint16) {
+	if m.Len() == 0 {
+		return
+	}
 	for j := byte(0); j < m.Bits(); j++ {
 		var input = uint32(command) | uint32(1 << (j + 16))
-		var maxx uint32
-		for i := 0; i < m.Len(); i++ {
+		var ss, maxx = m.Get(0)
+		input = hash.Hash(input, ss, maxx)
+		for i := 1; i < m.Len(); i++ {
 			var s, max = m.Get(i)
-			if i == 0 {
-				maxx += max
-			} else {
-				maxx -= max
-			}
+			maxx -= max
 			input = hash.Hash(input, s, maxx)
 		}
 		input &= 1
@@ -40,14 +40,14 @@ func Uint16Infer(command uint16, m Model) (out uint16) {
 }
 
 func Uint32Infer(input uint32, m Model) uint32 {
-	var maxx uint32
-	for i := 0; i < m.Len(); i++ {
+	if m.Len() == 0 {
+		return 0
+	}
+	var ss, maxx = m.Get(0)
+	input = hash.Hash(input, ss, maxx)
+	for i := 1; i < m.Len(); i++ {
 		var s, max = m.Get(i)
-		if i == 0 {
-			maxx += max
-		} else {
-			maxx -= max
-		}
+		maxx -= max
 		input = hash.Hash(input, s, maxx)
 	}
 	return input

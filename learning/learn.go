@@ -10,10 +10,16 @@ import "encoding/binary"
 
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/hash"
+import "github.com/neurlang/classifier/hashtron"
 
 type modulo_t = uint32
 
-func (h *HyperParameters) Training(d datasets.Splitter) {
+func (h *HyperParameters) Training(d datasets.Splitter) (*hashtron.Hashtron, error) {
+
+	if h.EOL == nil || len(h.EOL) == 0 {
+		h.EOL = []byte{';', ' '}
+	}
+
 	var sd = d.Split()
 
 	if h.Seed {
@@ -27,13 +33,15 @@ func (h *HyperParameters) Training(d datasets.Splitter) {
 	sd = datasets.BalanceDataset(sd)
 
 	var backup = h.InitialLimit
-	var unsolved bool
+	var result *hashtron.Hashtron
 
-	h.InitialLimit, unsolved = h.Solve(sd)
-	for !h.EndWhenSolved || unsolved {
-		h.InitialLimit, unsolved = h.Solve(sd)
+	h.InitialLimit, result = h.Solve(sd)
+	for !h.EndWhenSolved || result == nil {
+		h.InitialLimit, result = h.Solve(sd)
 	}
 	h.InitialLimit = backup
+
+	return result, nil
 }
 
 
@@ -53,7 +61,7 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
-func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, bool) {
+func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hashtron) {
 
 	var bitsi byte
 
@@ -93,7 +101,7 @@ looop:
 				max++
 				continue looop
 			}
-			return h.InitialLimit, true
+			return h.InitialLimit, nil
 		}
 		var sets [2]map[uint32]struct{}
 		sets[0] = make(map[uint32]struct{})
@@ -139,30 +147,33 @@ looop:
 					}
 				}
 			}
-			if len(sols) < h.InitialLimit {
-				if h.l != nil {
-					h.l.Println("var programBits byte = ", bitsi)
-					h.l.Println("var program = [][2]uint32{")
-					var maxx uint32
-					for i, v := range sols {
-						if i == 0 {
-							maxx = v[1]
-						} else {
-							maxx -= v[1]
-						}
-						h.l.Println("{", v[0], ",", maxx, "},")
-						maxx = v[1]
-					}
-					h.l.Println("}")
-					h.l.Println("// size == ", len(sols))
+			if len(sols) >= h.InitialLimit {
+				println("SOLUTION SIZE", len(sols), "is below LIMIT ", h.InitialLimit)
+				return h.InitialLimit, nil
+			}
+			var v1decrease uint32
+			if len(sols) > 0 {
+				v1decrease = sols[0][1] * 2
+			}
+			for i := range sols {
+				sols[i][1], v1decrease = v1decrease - sols[i][1], sols[i][1]
+			}
+			tron, err := hashtron.New(sols, bitsi)
+			if err != nil {
+				println("Error creating hashtron:", err.Error())
+				return h.InitialLimit, nil
+			}
+			if h.l != nil {
+				buf, err := tron.BytesBuffer("", h.EOL...)
+				if err != nil {
+					println("Hashtron serialization problem:", err.Error())
+				} else {
+					h.l.Println(buf)
 				}
-				println("SOLUTION SIZE == ", len(sols))
+			} else {
+				println("SOLUTION! SIZE == ", len(sols))
 			}
-			if len(sols) > h.InitialLimit {
-				println("SOLUTION SIZE is LIMIT ", len(sols))
-				return h.InitialLimit, true
-			}
-			return len(sols), false
+			return len(sols), tron
 		}
 
 		sets[0] = nil
@@ -179,7 +190,7 @@ looop:
 			max++
 		}
 	}
-	return h.InitialLimit, true
+	return h.InitialLimit, nil
 }
 
 // where is used to kill threads when it increases

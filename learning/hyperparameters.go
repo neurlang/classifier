@@ -30,5 +30,7 @@ type HyperParameters struct {
 
 	EndWhenSolved bool // end when solved
 
+	EOL []byte // override EOL string
+
 	l *log.Logger
 }

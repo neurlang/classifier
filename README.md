@@ -1,10 +1,14 @@
-# Neurlang Binary Classifier
+# Neurlang Binary Classifier (Hashtron)
 
 * A machine learning algorithm for training binary classifiers of integers.
   * The integers should be uint32. If your samples are larger, pre-hash them (for instance using murmur).
+  * Doesn't use floating point at all
 * It works best when the size of the true set and the false set is almost the same.
   * If they aren't, random numbers are padded to the smaller set 
 * The resulting models are very fast (they are hash based)
+* Larger hashtron networks can also be trained
+  * A MNIST handwritten digits demo is currently provided
+
 
 ## Usage - Training
 

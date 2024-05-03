@@ -90,9 +90,11 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 looop:
 	for max <= maxmax {
 		if !h.DisableProgressBar {
-			progress := progressBarWidth - int(maxl * progressBarWidth / maxmaxl)
-			percent := 100 - int(maxl * 100 / maxmaxl)
-			fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
+			if maxmaxl > 0 {
+				progress := progressBarWidth - int(maxl * progressBarWidth / maxmaxl)
+				percent := 100 - int(maxl * 100 / maxmaxl)
+				fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
+			}
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol = h.Reduce(max, maxl, &alphabet2)
@@ -186,8 +188,8 @@ looop:
 		}
 
 		max = uint32(uint64(max) * ((uint64(maxl-sub) * uint64(maxl-sub))) / (uint64(maxl) * uint64(maxl)))
-		if max == 0 {
-			max++
+		if max <= 1 {
+			max=1
 		}
 	}
 	return h.InitialLimit, nil

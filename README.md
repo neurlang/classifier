@@ -8,7 +8,7 @@
 * The resulting models are very fast (they are hash based)
 * Larger hashtron networks can also be trained
   * A MNIST handwritten digits demo is currently provided
-
+  * The larger models don't need to be fully connected, reducing the need for large scale matrix multiplication.
 
 ## Usage - Training
 

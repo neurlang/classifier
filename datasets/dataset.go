@@ -89,6 +89,15 @@ type Splitter interface {
 
 type SplittedDataset [2]map[uint32]struct{}
 
+func (d *SplittedDataset) Init() {
+	d[0] = make(map[uint32]struct{})
+	d[1] = make(map[uint32]struct{})
+}
+
+// Split splits SplittedDataset into a true set and a false set
+func (d SplittedDataset) Split() (o SplittedDataset) {
+	return d
+}
 
 // BalanceDataset fills the smaller set with random number until it matches the bigger set
 func BalanceDataset(d SplittedDataset) SplittedDataset {

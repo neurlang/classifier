@@ -44,7 +44,6 @@ func (h *HyperParameters) Training(d datasets.Splitter) (*hashtron.Hashtron, err
 	return result, nil
 }
 
-
 func progressBar(progress, width int) string {
 	progressBar := ""
 	for i := 0; i < progress; i++ {
@@ -63,6 +62,14 @@ func emptySpace(space int) string {
 
 func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hashtron) {
 
+	if len(d[1]) == 0 && len(d[0]) == 0 {
+		tron, err := hashtron.New(nil, 0)
+		if err != nil {
+			return h.InitialLimit, nil
+		}
+		return 1, tron
+	}
+
 	var bitsi byte
 
 	var alphabet [][]uint32
@@ -75,7 +82,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 			bits |= uint16(v >> 16)
 		}
 		if n == 0 {
-			for ; bits>0; bits>>=1 {
+			for ; bits > 0; bits >>= 1 {
 				bitsi++
 			}
 		}
@@ -87,17 +94,22 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
+	var try uint32
 looop:
 	for max <= maxmax {
 		if !h.DisableProgressBar {
 			if maxmaxl > 0 {
-				progress := progressBarWidth - int(maxl * progressBarWidth / maxmaxl)
-				percent := 100 - int(maxl * 100 / maxmaxl)
+				progress := progressBarWidth - int(maxl*progressBarWidth/maxmaxl)
+				percent := 100 - int(maxl*100/maxmaxl)
 				fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
 			}
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
-		var sol = h.Reduce(max, maxl, &alphabet2)
+		var sol = [2]uint32{try, 2}
+		if max == 1 && maxl == 1 {
+		} else {
+			sol = h.Reduce(max, maxl, &alphabet2)
+		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
 				max++
@@ -114,41 +126,44 @@ looop:
 				sets[n][hash.Hash(alphabet[n][i], sol[0], uint32(sol[1]))] = struct{}{}
 			}
 		}
-
-		for n := range d {
-			var i int
-			for v := range sets[n] {
-				for m := range d {
-					if m >= n {
-						continue
+		if max == 1 && maxl == 1 {
+		} else {
+			for n := range d {
+				var i int
+				for v := range sets[n] {
+					for m := range d {
+						if m >= n {
+							continue
+						}
+						if _, ok := sets[m][v]; ok {
+							//panic("algorithm bad")
+							continue looop
+						}
 					}
-					if _, ok := sets[m][v]; ok {
-						//panic("algorithm bad")
-						continue looop
-					}
+					alphabet[n][i] = v
+					i++
 				}
-				alphabet[n][i] = v
-				i++
 			}
 		}
-
 		sols = append(sols, sol)
 
 		maxl = modulo_t(len(sets[0]))
-
 		if maxl < 2 {
 			if len(d) == 2 {
 				for val0 := range sets[0] {
 					if (val0 & 1) == 1 {
+						try++
 						continue looop
 					}
 				}
 				for val1 := range sets[1] {
 					if (val1 & 1) == 0 {
+						try++
 						continue looop
 					}
 				}
 			}
+
 			if len(sols) >= h.InitialLimit {
 				println("SOLUTION SIZE", len(sols), "is below LIMIT ", h.InitialLimit)
 				return h.InitialLimit, nil
@@ -158,7 +173,7 @@ looop:
 				v1decrease = sols[0][1] * 2
 			}
 			for i := range sols {
-				sols[i][1], v1decrease = v1decrease - sols[i][1], sols[i][1]
+				sols[i][1], v1decrease = v1decrease-sols[i][1], sols[i][1]
 			}
 			tron, err := hashtron.New(sols, bitsi)
 			if err != nil {
@@ -187,9 +202,9 @@ looop:
 			sub = maxl - 1
 		}
 
-		max = uint32(uint64(max) * ((uint64(maxl-sub) * uint64(maxl-sub))) / (uint64(maxl) * uint64(maxl)))
+		max = uint32(uint64(max) * (uint64(maxl-sub) * uint64(maxl-sub)) / (uint64(maxl) * uint64(maxl)))
 		if max <= 1 {
-			max=1
+			max = 1
 		}
 	}
 	return h.InitialLimit, nil
@@ -326,5 +341,3 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 	return
 }
-
-

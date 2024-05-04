@@ -181,7 +181,7 @@ looop:
 				return h.InitialLimit, nil
 			}
 			if h.l != nil {
-				buf, err := tron.BytesBuffer("", h.EOL...)
+				buf, err := tron.BytesBuffer(h.Name, h.EOL...)
 				if err != nil {
 					println("Hashtron serialization problem:", err.Error())
 				} else {

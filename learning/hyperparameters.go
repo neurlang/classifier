@@ -6,7 +6,7 @@ import (
 )
 
 func (h *HyperParameters) SetLogger(filename string) {
-	outfile, _ := os.OpenFile("solutions.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	outfile, _ := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	h.l = log.New(outfile, "", 0)
 }
 
@@ -30,6 +30,7 @@ type HyperParameters struct {
 
 	EndWhenSolved bool // end when solved
 
+	Name string // override model name
 	EOL []byte // override EOL string
 
 	l *log.Logger

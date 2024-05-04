@@ -10,7 +10,7 @@ func intToBuf(n uint32) (buf []byte) {
 		buf[9-i] = byte(n%10) + '0'
 		n /= 10
 	}
-	for len(buf) > 0 && buf[0] == '0' {
+	for len(buf) > 1 && buf[0] == '0' {
 		buf = buf[1:]
 	}
 	return
@@ -41,7 +41,6 @@ func (h Hashtron) BytesBuffer(name string, eol ...byte) (b *bytes.Buffer, err er
 	b.WriteString(name)
 	b.WriteString("Bits byte = ")
 	b.Write(intToBuf(uint32(h.bits)))
-	b.WriteByte(h.bits%10 + '0')
 	b.Write(eol)
 	b.WriteString("var program")
 	b.WriteString(name)

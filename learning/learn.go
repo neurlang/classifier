@@ -186,6 +186,7 @@ looop:
 					println("Hashtron serialization problem:", err.Error())
 				} else {
 					h.l.Println(buf)
+					println("SOLUTION saved! SIZE == ", len(sols))
 				}
 			} else {
 				println("SOLUTION! SIZE == ", len(sols))

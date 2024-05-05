@@ -43,7 +43,7 @@ Factor is initially set to value such as 1. Later, when you get correct solution
 
 Subtractor is initially set to value such as 1.
 
-If your solution is found, you can slowly decrease the Subtractor to get smaller solutions.
+If your solution is found, you can slowly increase the Subtractor to get smaller solutions.
 
 ### Printer
 

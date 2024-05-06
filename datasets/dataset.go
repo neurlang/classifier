@@ -24,17 +24,17 @@ func (d Dataset) Split() (o SplittedDataset) {
 	return
 }
 
-type Datamap map[uint16]uint16
+type Datamap map[uint16]uint64
 
 func (d *Datamap) Init() {
-	*d = make(map[uint16]uint16)
+	*d = make(map[uint16]uint64)
 }
 
 // Split splits datamap into a true set and a false set
 func (d Datamap) Split() (o SplittedDataset) {
 	o[0] = make(map[uint32]struct{})
 	o[1] = make(map[uint32]struct{})
-	var bits uint16
+	var bits uint64
 	for _, v := range d {
 		bits |= v
 	}
@@ -54,8 +54,8 @@ func (d Datamap) Split() (o SplittedDataset) {
 // Reduce reduces the datamap
 func (d Datamap) Reduce(whole bool) (o Datamap) {
 	o = make(Datamap)
-	var exists = make(map[uint16]struct{})
-	var arr []uint16
+	var exists = make(map[uint64]struct{})
+	var arr []uint64
 	for _, v := range d {
 		if _, ok := exists[v]; ok {
 			continue
@@ -70,7 +70,7 @@ func (d Datamap) Reduce(whole bool) (o Datamap) {
 		for k, v := range d {
 			for i := range arr {
 				if arr[i] == v {
-					o[k] = uint16(i)
+					o[k] = uint64(i)
 					break
 				}
 			}
@@ -105,13 +105,13 @@ func BalanceDataset(d SplittedDataset) SplittedDataset {
 		return d
 	}
 	for len(d[0]) < len(d[1]) {
-		var w = rand.Uint32()
+		var w = uint32(uint16(rand.Uint32()))
 		if _, ok := d[1][w]; !ok {
 			d[0][w] = struct{}{}
 		}
 	}
 	for len(d[1]) < len(d[0]) {
-		var w = rand.Uint32()
+		var w = uint32(uint16(rand.Uint32()))
 		if _, ok := d[0][w]; !ok {
 			d[1][w] = struct{}{}
 		}

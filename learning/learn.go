@@ -81,7 +81,11 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 			if n == 0 && bits < uint16(v>>16) {
 				bits = uint16(v >> 16)
 			}
+
 		}
+	}
+	if bits >= 64 {
+		bits = 0
 	}
 
 	var sols [][2]uint32

@@ -78,7 +78,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 
 		for v := range d[n] {
 			alphabet[n] = append(alphabet[n], v)
-			if bits < uint16(v>>16) {
+			if n == 0 && bits < uint16(v>>16) {
 				bits = uint16(v >> 16)
 			}
 		}

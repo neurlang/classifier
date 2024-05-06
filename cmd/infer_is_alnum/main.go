@@ -11,7 +11,7 @@ func (p Program) Get(n int) (uint32, uint32) {
 	return (p)[n][0], (p)[n][1]
 }
 func (p Program) Bits() byte {
-	return 0 // unused, return 0
+	return 1 // unused, return 0
 }
 
 func main() {

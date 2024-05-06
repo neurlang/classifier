@@ -171,7 +171,7 @@ looop:
 			for i := range sols {
 				sols[i][1], v1decrease = v1decrease-sols[i][1], sols[i][1]
 			}
-			tron, err := hashtron.New(sols, byte(bits))
+			tron, err := hashtron.New(sols, byte(bits)+1)
 			if err != nil {
 				println("Error creating hashtron:", err.Error())
 				return h.InitialLimit, nil

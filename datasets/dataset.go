@@ -41,9 +41,9 @@ func (d Datamap) Split() (o SplittedDataset) {
 	for k, v := range d {
 		for i := uint16(0); (1<<i) < bits; i++ {
 			if (v >> i) & 1 == 1 {
-				o[1][uint32(k) | uint32(1) << (i+16)] = struct{}{}
+				o[1][uint32(k) | uint32(i) << 16] = struct{}{}
 			} else {
-				o[0][uint32(k) | uint32(1) << (i+16)] = struct{}{}
+				o[0][uint32(k) | uint32(i) << 16] = struct{}{}
 			}
 		}
 	}

@@ -31,7 +31,7 @@ type HyperParameters struct {
 	EndWhenSolved bool // end when solved
 
 	Name string // override model name
-	EOL []byte // override EOL string
+	EOL  []byte // override EOL string
 
 	l *log.Logger
 }

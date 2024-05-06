@@ -7,7 +7,7 @@ func (h Hashtron) Forward(command uint32, negate bool) (out uint16) {
 		return
 	}
 	for j := byte(0); j < h.Bits(); j++ {
-		var input = uint32(command) | uint32(1 << (j + 16))
+		var input = uint32(command) | (uint32(j) << 16)
 		var ss, maxx = h.Get(0)
 		input = hash.Hash(input, ss, maxx)
 		for i := 1; i < h.Len(); i++ {

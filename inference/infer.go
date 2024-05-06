@@ -23,7 +23,7 @@ func Uint16Infer(command uint16, m Model) (out uint16) {
 		return
 	}
 	for j := byte(0); j < m.Bits(); j++ {
-		var input = uint32(command) | uint32(1 << (j + 16))
+		var input = uint32(command) | (uint32(j) << 16)
 		var ss, maxx = m.Get(0)
 		input = hash.Hash(input, ss, maxx)
 		for i := 1; i < m.Len(); i++ {

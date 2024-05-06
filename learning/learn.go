@@ -70,20 +70,16 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 		return 1, tron
 	}
 
-	var bitsi byte
-
+	var bits uint16
 	var alphabet [][]uint32
 	for n := range d {
-		var bits uint16
+
 		alphabet = append(alphabet, make([]uint32, 0, len(d[n])))
 
 		for v := range d[n] {
 			alphabet[n] = append(alphabet[n], v)
-			bits |= uint16(v >> 16)
-		}
-		if n == 0 {
-			for ; bits > 0; bits >>= 1 {
-				bitsi++
+			if bits < uint16(v>>16) {
+				bits = uint16(v >> 16)
 			}
 		}
 	}
@@ -175,7 +171,7 @@ looop:
 			for i := range sols {
 				sols[i][1], v1decrease = v1decrease-sols[i][1], sols[i][1]
 			}
-			tron, err := hashtron.New(sols, bitsi)
+			tron, err := hashtron.New(sols, byte(bits))
 			if err != nil {
 				println("Error creating hashtron:", err.Error())
 				return h.InitialLimit, nil

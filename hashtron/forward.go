@@ -2,7 +2,7 @@ package hashtron
 
 import "github.com/neurlang/classifier/hash"
 
-func (h Hashtron) Forward(command uint32, negate bool) (out uint16) {
+func (h Hashtron) Forward(command uint32, negate bool) (out uint64) {
 	if h.Len() == 0 {
 		return
 	}

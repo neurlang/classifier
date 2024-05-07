@@ -239,7 +239,7 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					mutex.RUnlock()
 				}
 				var letter = [2][]uint32{make([]uint32, maxl, maxl), make([]uint32, maxl, maxl)}
-				var set = make([]byte, max, max)
+				var set = make([]byte, (max+3)/4, (max+3)/4)
 
 				var i uint32 = 0
 				var v = alphabet[1][i]
@@ -247,8 +247,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					if letter[j&1][i%uint32(maxl)] != 0 {
 						letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
 					}
-					if set[(uint32(i)%max)] != byte(0) {
-						if set[(uint32(i)%max)] == (byte((j^1)&1) + 1) {
+					imodmax := (uint32(i)%max)
+					if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 != byte(0) {
+						if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 == (byte((j^1)&1) + 1) {
 							if modulo_t(j) > h.Printer {
 								if h.DisableProgressBar {
 									println("Backtracking:", j)
@@ -258,7 +259,7 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 						}
 					}
 
-					set[(uint32(i) % max)] = byte(j&1) + 1
+					set[imodmax>>2] |= (byte(j&1) + 1) << ((imodmax & 3) << 1)
 					//println("at", v, i)
 					i = hash.Hash(v, s, max)
 					v = alphabet[j&1][i%uint32(maxl)]
@@ -271,8 +272,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				if letter[j&1][i%uint32(maxl)] != 0 {
 					letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
 				}
-				if set[(uint32(i)%max)] != byte(0) {
-					if set[(uint32(i)%max)] == (byte((j^1)&1) + 1) {
+				imodmax := (uint32(i)%max)
+				if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 != byte(0) {
+					if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 == (byte((j^1)&1) + 1) {
 						if modulo_t(j) > h.Printer {
 							if h.DisableProgressBar {
 								println("Backtracking:", j)
@@ -281,6 +283,9 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 						continue outer
 					}
 				}
+				set = nil
+				letter[0] = nil
+				letter[1] = nil
 				var set0 = make(map[uint32]struct{})
 				var set1 = make(map[uint32]struct{})
 				for j := modulo_t(0); j < maxl; j++ {

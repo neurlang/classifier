@@ -3,149 +3,153 @@ package main
 import "fmt"
 import "runtime"
 import "github.com/neurlang/classifier/datasets/mnist"
-import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
 
-type Input [mnist.SmallImgSize*mnist.SmallImgSize]byte
-func (i *Input) Feature(n int) uint32 {
-	return uint32(i[n]) | uint32(i[n+1]) | uint32(i[n+mnist.SmallImgSize]) | uint32(i[n+1+mnist.SmallImgSize])
-}
-
-type SumPool [4*4][3*3]bool
-func (s *SumPool) Put(n int, v uint16) {
-	x := n / 12
-	y := n % 12
-	xx := x / 3
-	xy := x % 3
-	yx := y / 3
-	yy := y % 3
-	s[xx+4*yx][xy+3*yy] = (v & 1) != 0
-}
-func (s *SumPool) Dropout(n int) bool {
-	x := n / 12
-	y := n % 12
-	xx := x / 3
-	yx := y / 3
-	var w = byte(9)
-	for _, v := range s[xx+4*yx] {
-		if v {
-			w++
-		} else {
-			w--
-		}
+func error_abs(a,b uint16) uint16 {
+	if a > b {
+		return a - b
 	}
-	if w == 8 || w == 10 {
-		return false
-	} else {
-		return true
-	}
-}
-func (s *SumPool) Feature(_ int) (o uint32) {
-	for n := 0; n < 16; n++ {
-		var w = byte(9)
-		for _, v := range s[n] {
-			if v {
-				w++
-			} else {
-				w--
-			}
-		}
-		if w > 9 {
-			o |= 1 << n
-		}
-	}
-	return 
+	return b - a
 }
 
 func main() {
 	if err := mnist.Error(); err != nil {
 		panic(err.Error())
 	}
+	const repeat = 1
+	var net FeedforwardNetwork
 	const l1Dim = mnist.SmallImgSize-1
-	var L1 [l1Dim*l1Dim]hashtron.Hashtron
-	for i := range L1 {
-		h, _ := hashtron.New(nil, 0)
-		L1[i] = *h
-	}
-	var L2 [1]hashtron.Hashtron
-	for i := range L2 {
-		h, _ := hashtron.New(nil, 4)
-		L2[i] = *h
-	}
+	net.NewLayer(l1Dim*l1Dim*repeat, 0)
+	net.NewSumPool(3, 4, repeat)
+	net.NewLayer(1, 4)
+	
+	//Load(net)
+	
+	//println(net.GetHashtron(1305))
 	
 	trainWorst := func(worst int) {
-		var set datasets.SplittedDataset
-		set.Init()
-		var mapp datasets.Datamap
-		mapp.Init()
-		var tabu = make(map[uint32]struct{})
+		var mapping = make(map[uint16]map[uint64]uint64)
+		var wanted = make(map[uint32]int64)
 	outer:
-		for j := range mnist.TrainLabels {
-			var input = Input(mnist.SmallTrainSet[j])
-			var output = uint16(mnist.TrainLabels[j])
-			if worst == l1Dim*l1Dim { // last layer
-				var hidden SumPool
-				for i := range L1 {
-					hidden.Put(i, L1[i].Forward(input.Feature(i), false))
+		for j := range mnist.InferLabels {
+			var input = mnist.SmallInput(mnist.SmallInferSet[j])
+			var output = uint16(mnist.InferLabels[j])
+			
+			switch net.GetLayer(worst) {
+			case 2: // layer 2
+				inter, _ := net.Forward(&input, 0, -1, 0)
+				ifeature := uint16(inter.Feature(0))
+				if mapping[ifeature] == nil {
+					mapping[ifeature] = make(map[uint64]uint64)
 				}
-				mapp[uint16(hidden.Feature(0))] = output
-			} else {
+				mapping[ifeature][uint64(output)]++
+			/*
+			case 2: // layer 2
 				var predicted [2]uint16
-				var computed [2]uint16
-				ifw := input.Feature(worst)
+				var compute [2]byte
+				
+				var inter, _ = net.Forward(&input, 0, -1, 0)
+				ifw := input.Feature(net.GetPosition(worst))
 				if _, ok := tabu[ifw]; ok {
 					continue
 				}
 				for neg := 0; neg < 2; neg++ {
-					var hidden SumPool
-					for i := range L1 {
-						var bit = L1[i].Forward(input.Feature(i), (i == worst) && (neg == 1))
-						if i == worst {
-							computed[neg] = bit & 1
-						}
-						hidden.Put(i, bit)
+					var inter, computed = net.Forward(inter, 2, net.GetPosition(worst), neg)
+					if computed {
+						compute[neg] = 1
 					}
 					if neg == 0 {
-						if hidden.Dropout(worst) {
+						if inter.Dropout(net.GetLayerPosition(2, worst)) {
 							continue outer
 						}
 					}
-					for i := range L2 {
-						predicted[neg] = L2[i].Forward(hidden.Feature(i), false)
-					}
+					inter, _ = net.Forward(inter, 4, -1, 0)
+					predicted[neg] = uint16(inter.Feature(0))
 				}
-
 				//fmt.Println(predicted, output)
-				if (predicted[0] != output) == (predicted[1] != output) {
-					if len(set[1]) < len(set[0]) {
-						if _, ok := set[0][ifw]; !ok {
-							set[1][ifw] = struct{}{}
+				if (predicted[0] == output) && (predicted[1] == output) {
+					// we are correct anyway
+					continue outer
+				}
+				for neg := 0; neg < 2; neg++ {
+					if predicted[neg] == output {
+						// shift to correct output
+						if _, ok := set[1^compute[neg]][ifw]; ok {
+							delete(set[1^compute[neg]], ifw)
+							tabu[ifw] = struct{}{}
+						} else {
+							set[compute[neg]][ifw] = struct{}{}
 						}
-					} else {
-						if _, ok := set[1][ifw]; !ok {
-							set[0][ifw] = struct{}{}
-						}
-					}
-					// doesn't matter
-				} else if predicted[0] != output {
-					if _, ok := set[1^computed[0]][ifw]; ok {
-						delete(set[1^computed[0]], ifw)
-						tabu[ifw] = struct{}{}
-					} else {
-						set[computed[0]][ifw] = struct{}{}
-					}
-				} else if predicted[1] != output {
-					if _, ok := set[1^computed[1]][ifw]; ok {
-						delete(set[1^computed[1]], ifw)
-						tabu[ifw] = struct{}{}
-					} else {
-						set[computed[1]][ifw] = struct{}{}
+						continue outer
 					}
 				}
+				var minneg int
+				for neg := 0; neg < 2; neg++ {
+					if error_abs(predicted[neg], output) < error_abs(predicted[minneg], output) {
+						minneg = neg
+					}
+				}
+				
+				// shift away to minneg output
+				if _, ok := set[1^compute[minneg]][ifw]; ok {
+					delete(set[1^compute[minneg]], ifw)
+					tabu[ifw] = struct{}{}
+				} else {
+					set[compute[minneg]][ifw] = struct{}{}
+				}
+			*/
+			case 0: // layer 1
+				var predicted [2]uint16
+				var compute [2]int8
+				
+				//var inter, computed = net.Forward(&input, 0, -1, 0)
+				ifw := input.Feature(net.GetPosition(worst))
+				//if _, ok := tabu[ifw]; ok {
+				//	continue
+				//}
+				for neg := 0; neg < 2; neg++ {
+					var inter, computed = net.Forward(&input, 0, net.GetPosition(worst), neg)
+					if computed {
+						compute[neg] = 1
+					} else {
+						compute[neg] = -1
+					}
+					if neg == 0 {
+						if inter.Dropout(net.GetLayerPosition(0, worst)) {
+							continue outer
+						}
+					}
+					inter, _ = net.Forward(inter, 2, -1, 0)
+					predicted[neg] = uint16(inter.Feature(0))
+				}
+				//fmt.Println(predicted, output)
+				if (predicted[0] == output) && (predicted[1] == output) {
+					// we are correct anyway
+					continue outer
+				}
+				for neg := 0; neg < 2; neg++ {
+					if predicted[neg] == output {
+					
+						wanted[ifw] += int64(compute[neg])
+						// shift to correct output
+
+						continue outer
+					}
+				}
+				var minneg int
+				for neg := 0; neg < 2; neg++ {
+					if error_abs(predicted[neg], output) < error_abs(predicted[minneg], output) {
+						minneg = neg
+					}
+				}
+				
+				// shift away to minneg output
+				wanted[ifw] += int64(compute[minneg])
+				
 			}
 		}
-		fmt.Println(worst, len(set[0]), len(set[1]))
+
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
 		h.Factor = 1 // affects the solution size
@@ -168,59 +172,80 @@ func main() {
 		h.InitialLimit = 9999999999
 		h.EndWhenSolved = true
 
+		h.Name = fmt.Sprint(worst)
+		h.SetLogger("solutions5.txt")
 
-		if worst == l1Dim*l1Dim {
+		if net.GetLayer(worst) == 2 {
+			var mapp datasets.Datamap
+			mapp.Init()
+			var suma = 0
+			for k, freq := range mapping {
+				var maxk uint64
+				for k2 := range freq {
+					if freq[k2] > freq[maxk] {
+						maxk = k2
+					} 
+				}
+				suma += int(freq[maxk])
+				mapp[k] = maxk
+			}
+			fmt.Println(worst, len(mapp))
 			htron, err := h.Training(mapp)
 			if err != nil {
 				panic(err.Error())
 			}
-			L2[0] = *htron
+			ptr := net.GetHashtron(worst)
+			*ptr = *htron
 		} else {
-			htron, err := h.Training(set)
+			var sett datasets.Dataset
+			sett.Init()
+			for value, rating := range wanted {
+				if rating != 0 {
+					sett[value] = rating > 0
+				}
+			}
+			fmt.Println(worst, len(sett))
+			htron, err := h.Training(sett)
 			if err != nil {
 				panic(err.Error())
 			}
-			L1[worst] = *htron
+			ptr := net.GetHashtron(worst)
+			*ptr = *htron
 		}
 	}
 
 	for {
-		mnist.ShuffleTrain()
-		for worst := 0; worst <= l1Dim*l1Dim; worst++ {
-			trainWorst(worst)
-		}
 		var quality [2]int64
+		var errsum [2]uint64
 		for i, v := range [2][]byte{mnist.TrainLabels, mnist.InferLabels} {
 			for j := range v {
-				//for i := 0; i < mnist.ImgSize; i++ {
-				//	fmt.Printf("%x\n", mnist.TrainSet[j][i*mnist.ImgSize:(i+1)*mnist.ImgSize])
-				//}
-				//for i := 0; i < mnist.SmallImgSize; i++ {
-				//	fmt.Printf("%x\n", mnist.SmallTrainSet[j][i*mnist.SmallImgSize:(i+1)*mnist.SmallImgSize])
-				//}
-				var input = Input(mnist.SmallTrainSet[j])
+				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
 				var output = uint16(mnist.TrainLabels[j])
 				if i == 1 {
-					input = Input(mnist.SmallInferSet[j])
+					input = mnist.SmallInput(mnist.SmallInferSet[j])
 					output = uint16(mnist.InferLabels[j])
 				}
-				var predicted [2]uint16
+				var predicted uint16
 				{
-					var hidden SumPool
-					for i := range L1 {
-						hidden.Put(i, L1[i].Forward(input.Feature(i), false))
-					}
-					for i := range L2 {
-						predicted[0] = L2[i].Forward(hidden.Feature(i), false)
-					}
+					//inter, _ := net.Forward(&input, 0, -1, 0)
+					inter, _ := net.Forward(&input, 0, -1, 0)
+					inter, _ = net.Forward(inter, 2, -1, 0)
+					predicted = uint16(inter.Feature(0))
+
 				}
-				if predicted[0] == output {
+				if predicted == output {
 					quality[i]++
 				} else {
 					quality[i]--
 				}
+				errsum[i] += uint64(error_abs(predicted, output))
 			}
 		}
-		println(quality[0], quality[1])
+		println(quality[0], errsum[0], quality[1], errsum[1])
+		mnist.ShuffleInfer()
+		for worst := 0; worst < net.Len(); worst++ {
+			trainWorst(worst)
+		}
+
 	}
 }

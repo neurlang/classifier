@@ -39,6 +39,22 @@ var TrainLabels, InferLabels []byte
 const SmallImgSize = 13
 var SmallTrainSet, SmallInferSet [][SmallImgSize*SmallImgSize]byte
 
+
+type SmallInput [SmallImgSize*SmallImgSize]byte
+func (i *SmallInput) Feature(n int) uint32 {
+	n %= ((SmallImgSize-1)*(SmallImgSize-1))
+	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+SmallImgSize])<<16 | uint32(i[n+1+SmallImgSize])<<24
+}
+
+
+
+type Input [ImgSize*ImgSize]byte
+func (i *Input) Feature(n int) uint32 {
+	n %= ((ImgSize-1)*(ImgSize-1))
+	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+ImgSize])<<16 | uint32(i[n+1+ImgSize])<<24
+}
+
+
 // Shuffle shuffles the mnist train dataset
 func ShuffleTrain() {
 	rand.Shuffle(len(TrainLabels), func(i, j int) {

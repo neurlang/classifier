@@ -24,6 +24,15 @@ func (t *Tally) Init() {
 	t.improve = make(map[uint32]int64)
 }
 
+// Len estimates the size of tally
+func (t *Tally) Len() int {
+	if len(t.mapping) != 0 {
+		return len(t.mapping)
+	}
+
+	// we can't do better estimate now
+	return len(t.correct) + len(t.improve)
+}
 // Improve votes for feature which improved the overall result
 func (t *Tally) AddToImprove(feature uint32, vote int8) {
 	if vote == 0 {

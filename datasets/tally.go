@@ -1,5 +1,7 @@
 package datasets
 
+import "sync"
+
 type Tally struct {
 	// this is for multiway classification layers
 	// each input has a map of possible outputs with number of votes
@@ -15,6 +17,8 @@ type Tally struct {
 	// true value is added as +1, false value is voted as -1
 	// if the tally is positive we map the feature to true, false if negative
 	improve map[uint32]int64
+
+	mut sync.Mutex
 }
 
 // Init initializes the tally dataset structure
@@ -38,10 +42,12 @@ func (t *Tally) AddToImprove(feature uint32, vote int8) {
 	if vote == 0 {
 		return
 	}
+	t.mut.Lock()
 	t.improve[feature] += int64(vote)
 	if t.improve[feature] == 0 {
 		delete(t.improve, feature)
 	}
+	t.mut.Unlock()
 }
 
 // Correct votes for feature which caused the overall result to be correct
@@ -49,18 +55,22 @@ func (t *Tally) AddToCorrect(feature uint32, vote int8) {
 	if vote == 0 {
 		return
 	}
+	t.mut.Lock()
 	t.correct[feature] += int64(vote)
 	if t.correct[feature] == 0 {
 		delete(t.correct, feature)
 	}
+	t.mut.Unlock()
 }
 
 // AddToMapping adds feature maps to this output vote to mapping
 func (t *Tally) AddToMapping(feature uint16, output uint64) {
+	t.mut.Lock()
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
 	t.mapping[feature][output]++
+	t.mut.Unlock()
 }
 
 // Split Splits the tally structure into a splitted dataset

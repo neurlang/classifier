@@ -68,7 +68,6 @@ func (t *Tally) Split() SplittedDataset {
 	if len(t.mapping) > 0 {
 		var mapp Datamap
 		mapp.Init()
-		var suma = 0
 		for k, freq := range t.mapping {
 			var maxk uint64
 			for k2 := range freq {
@@ -76,7 +75,6 @@ func (t *Tally) Split() SplittedDataset {
 					maxk = k2
 				} 
 			}
-			suma += int(freq[maxk])
 			mapp[k] = maxk
 		}
 		return mapp.Split()

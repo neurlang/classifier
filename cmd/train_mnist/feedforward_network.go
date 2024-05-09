@@ -19,6 +19,38 @@ func (v SingleValue) Dropout(n int) bool {
 	return false
 }
 
+// SumGrid
+
+type SumGrid struct {
+	g [27*27]bool
+}
+
+func (g *SumGrid) Put(n int, v uint64) {
+	(g.g)[n] = (v & 1) != 0
+}
+
+func (g *SumGrid) Feature(n int) (o uint32) {
+	num := 16
+	siz := 27
+	dif := siz - num + 1
+	x := n % dif
+	y := n / dif
+	for i := 0; i < num; i++ {
+	for j := 0; j < num; j++ {
+		if (g.g)[(siz*y+x)+(siz*i+j)] {
+			o++
+		}
+	}
+	}
+	if o >= 128 {
+		o--
+	}
+	return o
+}
+func (s *SumGrid) Dropout(n int) bool {
+	return false
+}
+
 // Grid
 
 type Grid struct {

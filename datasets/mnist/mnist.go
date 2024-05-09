@@ -19,7 +19,8 @@ func userHomeDir() string {
 
 const tmpDirectory = `/tmp/mnist/`
 var customDirectory = userHomeDir() + `/go/src/example.com/repo.git/classifier/datasets/mnist/`
-var searchDirectories = []string{tmpDirectory, customDirectory}
+var rootDirectory = userHomeDir() + `/classifier/datasets/mnist/`
+var searchDirectories = []string{tmpDirectory, customDirectory, rootDirectory}
 
 const inferSetImg = "t10k-images-idx3-ubyte.gz"
 const inferSetVal = "t10k-labels-idx1-ubyte.gz"

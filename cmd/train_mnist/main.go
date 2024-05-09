@@ -1,5 +1,6 @@
 package main
 
+import "sync"
 import "fmt"
 import "runtime"
 import "github.com/neurlang/classifier/datasets/mnist"
@@ -17,11 +18,13 @@ func main() {
 	if err := mnist.Error(); err != nil {
 		panic(err.Error())
 	}
-	const repeat = 1
 	var net FeedforwardNetwork
+	const l0Dim = mnist.ImgSize-1
 	const l1Dim = mnist.SmallImgSize-1
-	net.NewLayer(l1Dim*l1Dim*repeat, 0)
-	net.NewSumPool(3, 4, repeat)
+	net.NewLayer(l0Dim*l0Dim, 0)
+	net.NewSumGrid(27)
+	net.NewLayer(l1Dim*l1Dim, 0)
+	net.NewSumPool(3, 4, 1)
 	net.NewLayer(1, 4)
 	
 	//Load(net)
@@ -29,39 +32,43 @@ func main() {
 	//println(net.GetHashtron(1305))
 	
 	trainWorst := func(worst int) {
-		var mapping = make(map[uint16]map[uint64]uint64)
-		var wanted = make(map[uint32]int64)
-	outer:
-		for j := range mnist.InferLabels {
-			var input = mnist.SmallInput(mnist.SmallInferSet[j])
-			var output = uint16(mnist.InferLabels[j])
-			
+		var tally datasets.Tally
+		tally.Init()
+		wg := sync.WaitGroup{}
+
+		for jj := range mnist.TrainLabels {
+			wg.Add(1)
+			go func(jj int) {
+			var input = mnist.Input(mnist.TrainSet[jj])
+			var output = uint16(mnist.TrainLabels[jj])
+
+
+
 			switch net.GetLayer(worst) {
-			case 2: // layer 2
+			case 4: // layer 2
 				inter, _ := net.Forward(&input, 0, -1, 0)
+				inter, _ = net.Forward(inter, 2, -1, 0)
+
 				ifeature := uint16(inter.Feature(0))
-				if mapping[ifeature] == nil {
-					mapping[ifeature] = make(map[uint64]uint64)
-				}
-				mapping[ifeature][uint64(output)]++
-			/*
-			case 2: // layer 2
+
+				tally.AddToMapping(ifeature, uint64(output))
+
+			case 2: // layer 1
 				var predicted [2]uint16
-				var compute [2]byte
+				var compute [2]int8
 				
 				var inter, _ = net.Forward(&input, 0, -1, 0)
 				ifw := input.Feature(net.GetPosition(worst))
-				if _, ok := tabu[ifw]; ok {
-					continue
-				}
 				for neg := 0; neg < 2; neg++ {
-					var inter, computed = net.Forward(inter, 2, net.GetPosition(worst), neg)
+					inter, computed := net.Forward(inter, 2, net.GetPosition(worst), neg)
 					if computed {
 						compute[neg] = 1
+					} else {
+						compute[neg] = -1
 					}
 					if neg == 0 {
 						if inter.Dropout(net.GetLayerPosition(2, worst)) {
-							continue outer
+							goto end
 						}
 					}
 					inter, _ = net.Forward(inter, 4, -1, 0)
@@ -70,18 +77,15 @@ func main() {
 				//fmt.Println(predicted, output)
 				if (predicted[0] == output) && (predicted[1] == output) {
 					// we are correct anyway
-					continue outer
+					goto end
 				}
 				for neg := 0; neg < 2; neg++ {
 					if predicted[neg] == output {
+
+						tally.AddToCorrect(ifw, compute[neg])
 						// shift to correct output
-						if _, ok := set[1^compute[neg]][ifw]; ok {
-							delete(set[1^compute[neg]], ifw)
-							tabu[ifw] = struct{}{}
-						} else {
-							set[compute[neg]][ifw] = struct{}{}
-						}
-						continue outer
+
+						goto end
 					}
 				}
 				var minneg int
@@ -92,14 +96,9 @@ func main() {
 				}
 				
 				// shift away to minneg output
-				if _, ok := set[1^compute[minneg]][ifw]; ok {
-					delete(set[1^compute[minneg]], ifw)
-					tabu[ifw] = struct{}{}
-				} else {
-					set[compute[minneg]][ifw] = struct{}{}
-				}
-			*/
-			case 0: // layer 1
+				tally.AddToImprove(ifw, compute[minneg])
+				
+			case 0: // layer 0
 				var predicted [2]uint16
 				var compute [2]int8
 				
@@ -117,24 +116,25 @@ func main() {
 					}
 					if neg == 0 {
 						if inter.Dropout(net.GetLayerPosition(0, worst)) {
-							continue outer
+							goto end
 						}
 					}
 					inter, _ = net.Forward(inter, 2, -1, 0)
+					inter, _ = net.Forward(inter, 4, -1, 0)
 					predicted[neg] = uint16(inter.Feature(0))
 				}
 				//fmt.Println(predicted, output)
 				if (predicted[0] == output) && (predicted[1] == output) {
 					// we are correct anyway
-					continue outer
+					goto end
 				}
 				for neg := 0; neg < 2; neg++ {
 					if predicted[neg] == output {
 					
-						wanted[ifw] += int64(compute[neg])
+						tally.AddToCorrect(ifw, compute[neg])
 						// shift to correct output
 
-						continue outer
+						goto end
 					}
 				}
 				var minneg int
@@ -145,10 +145,16 @@ func main() {
 				}
 				
 				// shift away to minneg output
-				wanted[ifw] += int64(compute[minneg])
+				tally.AddToImprove(ifw, compute[minneg])
 				
 			}
+end:
+				wg.Done()
+
+			}(jj)
 		}
+
+		wg.Wait()
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -169,49 +175,21 @@ func main() {
 		h.Printer = 70
 
 		// save any solution to disk
-		h.InitialLimit = 9999999999
+		h.InitialLimit = 8*tally.Len()
 		h.EndWhenSolved = true
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions5.txt")
+		h.SetLogger("solutions6.txt")
 
-		if net.GetLayer(worst) == 2 {
-			var mapp datasets.Datamap
-			mapp.Init()
-			var suma = 0
-			for k, freq := range mapping {
-				var maxk uint64
-				for k2 := range freq {
-					if freq[k2] > freq[maxk] {
-						maxk = k2
-					} 
-				}
-				suma += int(freq[maxk])
-				mapp[k] = maxk
-			}
-			fmt.Println(worst, len(mapp))
-			htron, err := h.Training(mapp)
-			if err != nil {
-				panic(err.Error())
-			}
-			ptr := net.GetHashtron(worst)
-			*ptr = *htron
-		} else {
-			var sett datasets.Dataset
-			sett.Init()
-			for value, rating := range wanted {
-				if rating != 0 {
-					sett[value] = rating > 0
-				}
-			}
-			fmt.Println(worst, len(sett))
-			htron, err := h.Training(sett)
-			if err != nil {
-				panic(err.Error())
-			}
-			ptr := net.GetHashtron(worst)
-			*ptr = *htron
+		fmt.Println(worst, tally.Len())
+
+		htron, err := h.Training(&tally)
+		if err != nil {
+			panic(err.Error())
 		}
+		ptr := net.GetHashtron(worst)
+		*ptr = *htron
+
 	}
 
 	for {
@@ -219,10 +197,10 @@ func main() {
 		var errsum [2]uint64
 		for i, v := range [2][]byte{mnist.TrainLabels, mnist.InferLabels} {
 			for j := range v {
-				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
+				var input = mnist.Input(mnist.TrainSet[j])
 				var output = uint16(mnist.TrainLabels[j])
 				if i == 1 {
-					input = mnist.SmallInput(mnist.SmallInferSet[j])
+					input = mnist.Input(mnist.InferSet[j])
 					output = uint16(mnist.InferLabels[j])
 				}
 				var predicted uint16
@@ -230,6 +208,7 @@ func main() {
 					//inter, _ := net.Forward(&input, 0, -1, 0)
 					inter, _ := net.Forward(&input, 0, -1, 0)
 					inter, _ = net.Forward(inter, 2, -1, 0)
+					inter, _ = net.Forward(inter, 4, -1, 0)
 					predicted = uint16(inter.Feature(0))
 
 				}
@@ -242,7 +221,7 @@ func main() {
 			}
 		}
 		println(quality[0], errsum[0], quality[1], errsum[1])
-		mnist.ShuffleInfer()
+		//mnist.ShuffleInfer()
 		for worst := 0; worst < net.Len(); worst++ {
 			trainWorst(worst)
 		}

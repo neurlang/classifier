@@ -22,7 +22,16 @@ func (v SingleValue) Dropout(n int) bool {
 // SumGrid
 
 type SumGrid struct {
-	g [27*27]bool
+	g []bool
+	num byte
+}
+
+func NewSumGrid(num byte) (*SumGrid) {
+	n := int(num)
+	g := make([]bool, n*n)
+	return &SumGrid{
+		g, num,
+	}
 }
 
 func (g *SumGrid) Put(n int, v uint64) {
@@ -31,7 +40,7 @@ func (g *SumGrid) Put(n int, v uint64) {
 
 func (g *SumGrid) Feature(n int) (o uint32) {
 	num := 16
-	siz := 27
+	siz := int(g.num)
 	dif := siz - num + 1
 	x := n % dif
 	y := n / dif
@@ -179,6 +188,7 @@ type FeedforwardNetwork struct {
 	layers [][]hashtron.Hashtron
 	grids []*[2]byte
 	sumpools []*[3]byte
+	sumgrids []*byte
 	mapping []bool
 }
 
@@ -242,6 +252,7 @@ func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 	f.layers = append(f.layers, layer)
 	f.grids = append(f.grids, nil)
 	f.sumpools = append(f.sumpools, nil)
+	f.sumgrids = append(f.sumgrids, nil)
 	f.mapping = append(f.mapping, bits > 1)
 }
 
@@ -249,12 +260,22 @@ func (f *FeedforwardNetwork) NewGrid(bits, repeat byte) {
 	f.layers = append(f.layers, nil)
 	f.grids = append(f.grids, &[2]byte{bits, repeat})
 	f.sumpools = append(f.sumpools, nil)
+	f.sumgrids = append(f.sumgrids, nil)
 	f.mapping = append(f.mapping, false)
 }
 func (f *FeedforwardNetwork) NewSumPool(bits, bits2, repeat byte) {
 	f.layers = append(f.layers, nil)
 	f.grids = append(f.grids, nil)
 	f.sumpools = append(f.sumpools, &[3]byte{bits, bits2, repeat})
+	f.sumgrids = append(f.sumgrids, nil)
+	f.mapping = append(f.mapping, false)
+	
+}
+func (f *FeedforwardNetwork) NewSumGrid(size byte) {
+	f.layers = append(f.layers, nil)
+	f.grids = append(f.grids, nil)
+	f.sumpools = append(f.sumpools, nil)
+	f.sumgrids = append(f.sumgrids, &size)
 	f.mapping = append(f.mapping, false)
 	
 }
@@ -287,7 +308,6 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 	if len(f.sumpools) > l+1 && f.sumpools[l+1] != nil {
 		var sumpoolnum = *f.sumpools[l+1]
 		var sumpool = NewSumPool(sumpoolnum[0], sumpoolnum[1], sumpoolnum[2])
-		//var sumpool = new(SumPool4x3)
 		wg := sync.WaitGroup{}
 		for i := range f.layers[l] {
 			wg.Add(1)
@@ -302,6 +322,24 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		}
 		wg.Wait()
 		return sumpool, computed
+	}
+	if len(f.sumgrids) > l+1 && f.sumgrids[l+1] != nil {
+		var sumgridnum = *f.sumgrids[l+1]
+		var sumgrid = NewSumGrid(sumgridnum)
+		wg := sync.WaitGroup{}
+		for i := range f.layers[l] {
+			wg.Add(1)
+			go func(i int) {
+				var bit = f.layers[l][i].Forward(in.Feature(i), (i == worst) && (neg == 1))
+				sumgrid.Put(i, bit)
+				if i == worst {
+					computed = bit & 1 != 0
+				}
+				wg.Done()
+			}(i)
+		}
+		wg.Wait()
+		return sumgrid, computed
 	}
 	if len(f.mapping) > l && f.mapping[l] {
 		var val = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))

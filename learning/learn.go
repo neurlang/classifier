@@ -7,6 +7,7 @@ import "math/rand"
 import crypto_rand "crypto/rand"
 import "time"
 import "encoding/binary"
+import "sort"
 
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/hash"
@@ -105,10 +106,12 @@ looop:
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
+		var size int
 		if max == 1 && maxl == 1 {
 			sol = h.Reduce1(&alphabet2)
+			size = 1
 		} else {
-			sol = h.Reduce(max, maxl, &alphabet2)
+			sol, size = h.Reduce(max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -117,48 +120,34 @@ looop:
 			}
 			return h.InitialLimit, nil
 		}
-		var sets [2]map[uint32]struct{}
-		sets[0] = make(map[uint32]struct{})
-		sets[1] = make(map[uint32]struct{})
+		var set = make(map[uint32]struct{})
 
-		for i := modulo_t(0); i < maxl; i++ {
-			for n := range d {
-				sets[n][hash.Hash(alphabet[n][i], sol[0], uint32(sol[1]))] = struct{}{}
-			}
-		}
-		if max == 1 && maxl == 1 {
-		} else {
-			for n := range d {
-				var i int
-				for v := range sets[n] {
-					for m := range d {
-						if m >= n {
-							continue
-						}
-						if _, ok := sets[m][v]; ok {
-							//panic("algorithm bad")
-							continue looop
-						}
-					}
-					alphabet[n][i] = v
-					i++
+		for n := range d {
+			dst := alphabet[n][0:0:maxl]
+			for i := modulo_t(0); i < maxl; i++ {
+				hsh := hash.Hash(alphabet[n][i], sol[0], uint32(sol[1]))
+				if _, ok := set[hsh]; ok {
+					continue
 				}
+				dst = append(dst, hsh)
+				set[hsh] = struct{}{}
 			}
+			alphabet[n] = dst
 		}
+		set = nil
+
 		sols = append(sols, sol)
 
-		maxl = modulo_t(len(sets[0]))
+		maxl = modulo_t(size)
+		alphabet[0] = alphabet[0][0:maxl]
+		alphabet[1] = alphabet[1][0:maxl]
 		if maxl < 2 {
 			if len(d) == 2 {
-				for val0 := range sets[0] {
-					if (val0 & 1) == 1 {
-						continue looop
-					}
+				if alphabet[0][0]&1 == 1 {
+					continue looop
 				}
-				for val1 := range sets[1] {
-					if (val1 & 1) == 0 {
-						continue looop
-					}
+				if alphabet[1][0]&1 == 0 {
+					continue looop
 				}
 			}
 
@@ -192,9 +181,6 @@ looop:
 			return len(sols), tron
 		}
 
-		sets[0] = nil
-		sets[1] = nil
-
 		var sub = h.Subtractor
 
 		if sub >= maxl {
@@ -219,7 +205,7 @@ func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 			mutex.RLock()
 			var my_where = where
 			mutex.RUnlock()
-outer:
+		outer:
 			for s := uint32(tt); true; s += uint32(h.Threads) {
 				mutex.RLock()
 				if my_where != where || out[0] != 0 || out[1] != 0 {
@@ -228,15 +214,15 @@ outer:
 				} else {
 					mutex.RUnlock()
 				}
-				if hash.Hash(alphabet[0][0], s, 2) & 1 != 0 {
+				if hash.Hash(alphabet[0][0], s, 2)&1 != 0 {
 					continue outer
 				}
-				if hash.Hash(alphabet[1][0], s, 2) & 1 != 1 {
+				if hash.Hash(alphabet[1][0], s, 2)&1 != 1 {
 					continue outer
 				}
 				mutex.Lock()
 				if h.DisableProgressBar {
-					println("Size: ", "1", "Modulo:", max)
+					println("Size: ", "1", "Modulo:", "2")
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
@@ -275,8 +261,9 @@ outer:
 var where byte
 var mutex sync.RWMutex
 
-func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32, sizeoff int) {
 	var out [2]uint32
+	var sizeglobal int
 	mutex.Lock()
 	where++
 	mutex.Unlock()
@@ -301,81 +288,96 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				var letter = [2][]uint32{make([]uint32, maxl, maxl), make([]uint32, maxl, maxl)}
 				var set = make([]byte, (max+3)/4, (max+3)/4)
 
-				var i uint32 = 0
-				var v = alphabet[1][i]
-				for j := uint32(0); j < 2*uint32(maxl); j++ {
-					if letter[j&1][i%uint32(maxl)] != 0 {
-						letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
-					}
-					imodmax := (uint32(i)%max)
-					if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 != byte(0) {
-						if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 == (byte((j^1)&1) + 1) {
-							if modulo_t(j) > h.Printer {
-								if h.DisableProgressBar {
-									println("Backtracking:", j)
+				{
+					var i uint32 = 0
+					var v = alphabet[1][i]
+					for j := uint32(0); j < 2*uint32(maxl); j++ {
+
+						//println("at", v, i)
+						i = hash.Hash(v, s, max)
+						v = alphabet[j&1][i%uint32(maxl)]
+						//fmt.Println(letter)
+
+						if letter[j&1][i%uint32(maxl)] != 0 {
+							letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
+						}
+						imodmax := (uint32(i) % max)
+						if (set[imodmax>>2]>>((imodmax&3)<<1))&3 != byte(0) {
+							if (set[imodmax>>2]>>((imodmax&3)<<1))&3 == (byte((j^1)&1) + 1) {
+								if modulo_t(j) > h.Printer {
+									if h.DisableProgressBar {
+										println("Backtracking:", j)
+									}
 								}
-							}
-							continue outer
-						}
-					}
-
-					set[imodmax>>2] |= (byte(j&1) + 1) << ((imodmax & 3) << 1)
-					//println("at", v, i)
-					i = hash.Hash(v, s, max)
-					v = alphabet[j&1][i%uint32(maxl)]
-					//fmt.Println(letter)
-
-				}
-				i = hash.Hash(v, s, max)
-
-				var j = uint32(1)
-				if letter[j&1][i%uint32(maxl)] != 0 {
-					letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
-				}
-				imodmax := (uint32(i)%max)
-				if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 != byte(0) {
-					if (set[imodmax>>2] >> ((imodmax & 3) << 1)) & 3 == (byte((j^1)&1) + 1) {
-						if modulo_t(j) > h.Printer {
-							if h.DisableProgressBar {
-								println("Backtracking:", j)
+								continue outer
 							}
 						}
-						continue outer
+						set[imodmax>>2] |= (byte(j&1) + 1) << ((imodmax & 3) << 1)
 					}
 				}
+
 				set = nil
+
+				for i := range letter[0] {
+					letter[0][i] = hash.Hash(alphabet[0][i], s, max)
+				}
+				for i := range letter[1] {
+					letter[1][i] = hash.Hash(alphabet[1][i], s, max)
+				}
+
+				sort.Slice(letter[0], func(i, j int) bool { return letter[0][i] < letter[0][j] })
+				sort.Slice(letter[1], func(i, j int) bool { return letter[1][i] < letter[1][j] })
+				q, size := 0, 0
+				{
+					// Indices for the two slices
+					i, j := 0, 0
+					for i < len(letter[0]) && j < len(letter[1]) {
+						if letter[0][i] == letter[1][j] {
+							//panic("algorithm bad")
+							continue outer
+						} else if letter[0][i] < letter[1][j] {
+							i++
+							if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
+								q--
+							} else {
+								size++
+							}
+						} else {
+							j++
+							if j < len(letter[1]) && letter[1][j] == letter[1][j-1] {
+								q++
+							}
+						}
+					}
+					for i < len(letter[0]) {
+						i++
+						if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
+							q--
+						} else {
+							size++
+						}
+					}
+					for j < len(letter[1]) {
+						j++
+						if j < len(letter[1]) && letter[1][j] == letter[1][j-1] {
+							q++
+						}
+					}
+				}
+
 				letter[0] = nil
 				letter[1] = nil
-				var set0 = make(map[uint32]struct{})
-				var set1 = make(map[uint32]struct{})
-				for j := modulo_t(0); j < maxl; j++ {
 
-					set0[hash.Hash(alphabet[0][j], s, max)] = struct{}{}
-					//println(tt,"sol=",alphabet[0][j], hash.Hash(alphabet[0][j], s, max))
-
-				}
-				//println(tt)
-				for j := modulo_t(0); j < maxl; j++ {
-
-					var val = hash.Hash(alphabet[1][j], s, max)
-					set1[val] = struct{}{}
-					if _, ok := set0[val]; ok {
-						//panic("algorithm bad")
-						continue outer
-					}
-					//println(tt,"sol=",alphabet[1][j], hash.Hash(alphabet[1][j], s, max))
-
-				}
-				//panic(tt)
-				if len(set0) == len(set1) {
+				if q == 0 {
 					mutex.Lock()
 					if h.DisableProgressBar {
-						println("Size: ", len(set0), "Modulo:", max)
+						println("Size: ", size, "Modulo:", max)
 					}
 					//println("{", s, ",", max, "}, // ", len(set0))
 					if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
 						out[0] = s
 						out[1] = uint32(max)
+						sizeglobal = size
 					}
 					mutex.Unlock()
 					return
@@ -394,6 +396,7 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		mutex.RLock()
 	}
 	off = out
+	sizeoff = sizeglobal
 	mutex.RUnlock()
 	if deadline == 0 {
 		mutex.Lock()

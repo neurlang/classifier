@@ -106,12 +106,10 @@ looop:
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
-		var size int
 		if max == 1 && maxl == 1 {
 			sol = h.Reduce1(&alphabet2)
-			size = 1
 		} else {
-			sol, size = h.Reduce(max, maxl, &alphabet2)
+			sol = h.Reduce(max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -138,7 +136,11 @@ looop:
 
 		sols = append(sols, sol)
 
-		maxl = modulo_t(size)
+		if len(alphabet[0]) != len(alphabet[1]) {
+			panic("lenghts don't match ??")
+		}
+
+		maxl = modulo_t(len(alphabet[0]))
 		alphabet[0] = alphabet[0][0:maxl]
 		alphabet[1] = alphabet[1][0:maxl]
 		if maxl < 2 {
@@ -261,9 +263,8 @@ func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 var where byte
 var mutex sync.RWMutex
 
-func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32, sizeoff int) {
+func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
-	var sizeglobal int
 	mutex.Lock()
 	where++
 	mutex.Unlock()
@@ -377,7 +378,6 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
 						out[0] = s
 						out[1] = uint32(max)
-						sizeglobal = size
 					}
 					mutex.Unlock()
 					return
@@ -396,7 +396,6 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		mutex.RLock()
 	}
 	off = out
-	sizeoff = sizeglobal
 	mutex.RUnlock()
 	if deadline == 0 {
 		mutex.Lock()

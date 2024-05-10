@@ -94,7 +94,6 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
-	var try uint32
 looop:
 	for max <= maxmax {
 		if !h.DisableProgressBar {
@@ -105,8 +104,9 @@ looop:
 			}
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
-		var sol = [2]uint32{try, 2}
+		var sol [2]uint32
 		if max == 1 && maxl == 1 {
+			sol = h.Reduce1(&alphabet2)
 		} else {
 			sol = h.Reduce(max, maxl, &alphabet2)
 		}
@@ -152,13 +152,11 @@ looop:
 			if len(d) == 2 {
 				for val0 := range sets[0] {
 					if (val0 & 1) == 1 {
-						try++
 						continue looop
 					}
 				}
 				for val1 := range sets[1] {
 					if (val1 & 1) == 0 {
-						try++
 						continue looop
 					}
 				}
@@ -209,6 +207,68 @@ looop:
 		}
 	}
 	return h.InitialLimit, nil
+}
+
+func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
+	var out [2]uint32
+	mutex.Lock()
+	where++
+	mutex.Unlock()
+	for t := 1; t < h.Threads; t++ {
+		go func(tt byte) {
+			mutex.RLock()
+			var my_where = where
+			mutex.RUnlock()
+outer:
+			for s := uint32(tt); true; s += uint32(h.Threads) {
+				mutex.RLock()
+				if my_where != where || out[0] != 0 || out[1] != 0 {
+					mutex.RUnlock()
+					return
+				} else {
+					mutex.RUnlock()
+				}
+				if hash.Hash(alphabet[0][0], s, 2) & 1 != 0 {
+					continue outer
+				}
+				if hash.Hash(alphabet[1][0], s, 2) & 1 != 1 {
+					continue outer
+				}
+				mutex.Lock()
+				if h.DisableProgressBar {
+					println("Size: ", "1", "Modulo:", max)
+				}
+				//println("{", s, ",", max, "}, // ", len(set0))
+				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
+					out[0] = s
+					out[1] = 2
+				}
+				mutex.Unlock()
+				return
+			}
+		}(byte(t))
+	}
+	mutex.RLock()
+	var deadline = h.DeadlineMs
+	for out[0] == 0 && out[1] == 0 && deadline > 0 {
+		mutex.RUnlock()
+		time.Sleep(time.Millisecond)
+		deadline--
+		mutex.RLock()
+	}
+	off = out
+	mutex.RUnlock()
+	if deadline == 0 {
+		mutex.Lock()
+		out[0] = ^uint32(0)
+		out[1] = ^uint32(0)
+		mutex.Unlock()
+		if h.DisableProgressBar {
+			println("Deadline")
+		}
+	}
+
+	return
 }
 
 // where is used to kill threads when it increases

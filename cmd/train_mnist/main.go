@@ -27,34 +27,36 @@ func main() {
 	net.NewLayer(l0Dim*l0Dim, 0)
 	net.NewCombiner(conv2d.MustNew(27, 27, 16, 16, 1))
 	net.NewLayer(l1Dim*l1Dim, 0)
-	net.NewCombiner(majpool2d.MustNew(3, 3, 4, 4, 1))
+	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 1))
 	net.NewLayer(1, 4)
 
 	//Load(net)
 
-	//println(net.GetHashtron(1305))
-
 	trainWorst := func(worst int) {
-		var tally datasets.Tally
+		var tally = new(datasets.Tally)
 		tally.Init()
-		wg := sync.WaitGroup{}
 
-		for jj := range mnist.InferLabels {
 
-			wg.Add(1)
-			go func(jj int) {
-				var input = mnist.Input(mnist.InferSet[jj])
-				var output = feedforward.SingleValue(mnist.InferLabels[jj])
+		for j := 0; j < len(mnist.InferLabels); j+=10 {
+			wg := sync.WaitGroup{}
+			for jj := 0; jj < 500 && jj + j < len(mnist.InferLabels); jj++ {
+				wg.Add(1)
+				go func(jjj int) {
+					var input = mnist.Input(mnist.InferSet[jjj])
+					var output = feedforward.SingleValue(mnist.InferLabels[jjj])
 
-				net.Tally(&input, &output, worst, tally, func(i, j feedforward.FeedforwardNetworkInput) bool {
-					return error_abs(i.Feature(0), output.Feature(0)) < error_abs(j.Feature(0), output.Feature(0))
-				})
-				wg.Done()
+					net.Tally(&input, &output, worst, tally, func(i, j feedforward.FeedforwardNetworkInput) bool {
+						return error_abs(i.Feature(0), output.Feature(0)) < error_abs(j.Feature(0), output.Feature(0))
+					})
+					wg.Done()
 
-			}(jj)
+				}(jj+j)
+
+			}
+			wg.Wait()
 		}
 
-		wg.Wait()
+
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -83,7 +85,7 @@ func main() {
 
 		fmt.Println(worst, tally.Len())
 
-		htron, err := h.Training(&tally)
+		htron, err := h.Training(tally)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -93,8 +95,7 @@ func main() {
 		tally.Free()
 		runtime.GC()
 	}
-
-	for {
+	evaluate := func() {
 		var quality [2]int64
 		var errsum [2]uint64
 		for i, v := range [2][]byte{mnist.TrainLabels, mnist.InferLabels} {
@@ -115,10 +116,12 @@ func main() {
 			}
 		}
 		println(quality[0], errsum[0], quality[1], errsum[1])
-		//mnist.ShuffleInfer()
+	}
+
+	evaluate()
+	for {
 		for worst := 0; worst < net.Len(); worst++ {
 			trainWorst(worst)
 		}
-
 	}
 }

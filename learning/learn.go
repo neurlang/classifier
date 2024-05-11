@@ -319,6 +319,15 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 				set = nil
 
+				// exit if other thread won
+				mutex.RLock()
+				if my_where != where || out[0] != 0 || out[1] != 0 {
+					mutex.RUnlock()
+					return
+				} else {
+					mutex.RUnlock()
+				}
+
 				for i := range letter[0] {
 					letter[0][i] = hash.Hash(alphabet[0][i], s, max)
 				}

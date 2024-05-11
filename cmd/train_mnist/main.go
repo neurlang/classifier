@@ -6,6 +6,8 @@ import "runtime"
 import "github.com/neurlang/classifier/datasets/mnist"
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
+import "github.com/neurlang/classifier/layer/conv2d"
+import "github.com/neurlang/classifier/layer/majpool2d"
 
 func error_abs(a,b uint16) uint16 {
 	if a > b {
@@ -22,9 +24,9 @@ func main() {
 	const l0Dim = mnist.ImgSize-1
 	const l1Dim = mnist.SmallImgSize-1
 	net.NewLayer(l0Dim*l0Dim, 0)
-	net.NewSumGrid(27)
+	net.New(conv2d.MustNew(27, 27, 16, 16, 1))
 	net.NewLayer(l1Dim*l1Dim, 0)
-	net.NewSumPool(3, 4, 1)
+	net.New(majpool2d.MustNew(4, 4, 3, 3, 1))
 	net.NewLayer(1, 4)
 	
 	//Load(net)
@@ -36,11 +38,12 @@ func main() {
 		tally.Init()
 		wg := sync.WaitGroup{}
 
-		for jj := range mnist.TrainLabels {
+		for jj := range mnist.InferLabels {
+
 			wg.Add(1)
 			go func(jj int) {
-			var input = mnist.Input(mnist.TrainSet[jj])
-			var output = uint16(mnist.TrainLabels[jj])
+			var input = mnist.Input(mnist.InferSet[jj])
+			var output = uint16(mnist.InferLabels[jj])
 
 
 
@@ -67,7 +70,7 @@ func main() {
 						compute[neg] = -1
 					}
 					if neg == 0 {
-						if inter.Dropout(net.GetLayerPosition(2, worst)) {
+						if inter.Disregard(net.GetLayerPosition(2, worst)) {
 							goto end
 						}
 					}
@@ -115,7 +118,7 @@ func main() {
 						compute[neg] = -1
 					}
 					if neg == 0 {
-						if inter.Dropout(net.GetLayerPosition(0, worst)) {
+						if inter.Disregard(net.GetLayerPosition(0, worst)) {
 							goto end
 						}
 					}
@@ -175,11 +178,11 @@ end:
 		h.Printer = 70
 
 		// save any solution to disk
-		h.InitialLimit = 8*tally.Len()
+		h.InitialLimit = 1000+4*tally.Len()
 		h.EndWhenSolved = true
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions6.txt")
+		h.SetLogger("solutions9.txt")
 
 		fmt.Println(worst, tally.Len())
 
@@ -190,6 +193,8 @@ end:
 		ptr := net.GetHashtron(worst)
 		*ptr = *htron
 
+		tally.Free()
+		runtime.GC()
 	}
 
 	for {

@@ -10,8 +10,17 @@ type Full struct {
 	bits byte
 }
 
+// MustNew creates a new full layer with size and bits
+func MustNew(size int, bits byte) *FullLayer {
+	o, err := New(size, bits)
+	if err != nil {
+		panic(err.Error())
+	}
+	return o
+}
+
 // New creates a new full layer with size and bits
-func New(size int, bits byte) (o *FullLayer) {
+func New(size int, bits byte) (o *FullLayer, err error) {
 	o = new(FullLayer)
 	o.size = size
 	o.bits = bits

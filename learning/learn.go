@@ -347,10 +347,10 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 							continue outer
 						} else if letter[0][i] < letter[1][j] {
 							i++
+							size++
 							if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
 								q--
-							} else {
-								size++
+								size--
 							}
 						} else {
 							j++
@@ -361,10 +361,10 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					}
 					for i < len(letter[0]) {
 						i++
+						size++
 						if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
 							q--
-						} else {
-							size++
+							size--
 						}
 					}
 					for j < len(letter[1]) {

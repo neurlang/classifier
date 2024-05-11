@@ -36,10 +36,10 @@ func main() {
 		var tally = new(datasets.Tally)
 		tally.Init()
 
-
-		for j := 0; j < len(mnist.InferLabels); j+=10 {
+		const group = 500
+		for j := 0; j < len(mnist.InferLabels); j+=group {
 			wg := sync.WaitGroup{}
-			for jj := 0; jj < 500 && jj + j < len(mnist.InferLabels); jj++ {
+			for jj := 0; jj < group && jj + j < len(mnist.InferLabels); jj++ {
 				wg.Add(1)
 				go func(jjj int) {
 					var input = mnist.Input(mnist.InferSet[jjj])

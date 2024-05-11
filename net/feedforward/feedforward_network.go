@@ -1,4 +1,4 @@
-package main
+package feedforward
 
 import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/layer"
@@ -93,7 +93,7 @@ func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 }
 
 
-func (f *FeedforwardNetwork) New(layer layer.Layer) {
+func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.layers = append(f.layers, nil)
 	f.mapping = append(f.mapping, false)
 	f.combiners = append(f.combiners, layer)

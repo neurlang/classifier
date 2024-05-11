@@ -8,6 +8,7 @@ import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
 import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+import "github.com/neurlang/classifier/net/feedforward"
 
 func error_abs(a,b uint16) uint16 {
 	if a > b {
@@ -20,13 +21,13 @@ func main() {
 	if err := mnist.Error(); err != nil {
 		panic(err.Error())
 	}
-	var net FeedforwardNetwork
+	var net feedforward.FeedforwardNetwork
 	const l0Dim = mnist.ImgSize-1
 	const l1Dim = mnist.SmallImgSize-1
 	net.NewLayer(l0Dim*l0Dim, 0)
-	net.New(conv2d.MustNew(27, 27, 16, 16, 1))
+	net.NewCombiner(conv2d.MustNew(27, 27, 16, 16, 1))
 	net.NewLayer(l1Dim*l1Dim, 0)
-	net.New(majpool2d.MustNew(4, 4, 3, 3, 1))
+	net.NewCombiner(majpool2d.MustNew(3, 3, 4, 4, 1))
 	net.NewLayer(1, 4)
 	
 	//Load(net)
@@ -182,7 +183,7 @@ end:
 		h.EndWhenSolved = true
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions9.txt")
+		h.SetLogger("solutions10.txt")
 
 		fmt.Println(worst, tally.Len())
 

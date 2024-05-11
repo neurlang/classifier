@@ -144,7 +144,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 	return nil, false
 }
 
-func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int, tally datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
+func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var predicted [2]FeedforwardNetworkInput

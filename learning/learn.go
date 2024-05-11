@@ -1,13 +1,13 @@
 // Package Learning implements the learning stage of the Neurlang classifier
 package learning
 
+import "math/bits"
 import "fmt"
 import "sync"
 import "math/rand"
 import crypto_rand "crypto/rand"
 import "time"
 import "encoding/binary"
-import "sort"
 
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/hash"
@@ -108,6 +108,8 @@ looop:
 		var sol [2]uint32
 		if max == 1 && maxl == 1 {
 			sol = h.Reduce1(&alphabet2)
+		} else if maxl <= 2 {
+			sol = h.Reduce2(&alphabet2)
 		} else {
 			sol = h.Reduce(max, maxl, &alphabet2)
 		}
@@ -132,17 +134,22 @@ looop:
 			}
 			alphabet[n] = dst
 		}
+		for n := 0; n < 2; n++ {
+			for len(alphabet[n]) < len(alphabet[n^1]) {
+				var w = uint32(uint16(rand.Uint32()))
+				if _, ok := set[w]; ok {
+					continue
+				}
+				alphabet[n] = append(alphabet[n], w)
+				set[w] = struct{}{}
+			}
+		}
 		set = nil
 
 		sols = append(sols, sol)
 
-		if len(alphabet[0]) != len(alphabet[1]) {
-			panic("lenghts don't match ??")
-		}
-
 		maxl = modulo_t(len(alphabet[0]))
-		alphabet[0] = alphabet[0][0:maxl]
-		alphabet[1] = alphabet[1][0:maxl]
+
 		if maxl < 2 {
 			if len(d) == 2 {
 				if alphabet[0][0]&1 == 1 {
@@ -195,6 +202,79 @@ looop:
 		}
 	}
 	return h.InitialLimit, nil
+}
+
+func (h *HyperParameters) Reduce2(alphabet *[2][]uint32) (off [2]uint32) {
+	var out [2]uint32
+	mutex.Lock()
+	where++
+	mutex.Unlock()
+	for t := 1; t < h.Threads; t++ {
+		go func(tt byte) {
+			mutex.RLock()
+			var my_where = where
+			mutex.RUnlock()
+		outer:
+			for s := uint32(tt); true; s += uint32(h.Threads) {
+				mutex.RLock()
+				if my_where != where || out[0] != 0 || out[1] != 0 {
+					mutex.RUnlock()
+					return
+				} else {
+					mutex.RUnlock()
+				}
+				h00 := hash.Hash(alphabet[0][0], s, 3)
+				h01 := hash.Hash(alphabet[0][1], s, 3)
+				h10 := hash.Hash(alphabet[1][0], s, 3)
+				h11 := hash.Hash(alphabet[1][1], s, 3)
+
+				if h00 == h10 || h00 == h11 {
+					continue outer
+				}
+				if h01 == h10 || h01 == h11 {
+					continue outer
+				}
+				if h00 != h01 {
+					continue outer
+				}
+				if h10 != h11 {
+					continue outer
+				}
+				mutex.Lock()
+				if h.DisableProgressBar {
+					println("Size: ", "1", "Modulo:", "2")
+				}
+				//println("{", s, ",", max, "}, // ", len(set0))
+				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
+					out[0] = s
+					out[1] = 2
+				}
+				mutex.Unlock()
+				return
+			}
+		}(byte(t))
+	}
+	mutex.RLock()
+	var deadline = h.DeadlineMs
+	for out[0] == 0 && out[1] == 0 && deadline > 0 {
+		mutex.RUnlock()
+		time.Sleep(time.Millisecond)
+		deadline--
+		mutex.RLock()
+	}
+	off = out
+	mutex.RUnlock()
+	if deadline == 0 {
+		mutex.Lock()
+		out[0] = ^uint32(0)
+		out[1] = ^uint32(0)
+		mutex.Unlock()
+		if h.DisableProgressBar {
+			println("Deadline")
+		}
+	}
+
+	return
 }
 
 func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
@@ -286,12 +366,11 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				} else {
 					mutex.RUnlock()
 				}
-				var letter = [2][]uint32{make([]uint32, maxl, maxl), make([]uint32, maxl, maxl)}
 				var set = make([]byte, (max+3)/4, (max+3)/4)
 
 				{
 					var i uint32 = 0
-					var v = alphabet[1][i]
+					var v = alphabet[0][i]
 					for j := uint32(0); j < 2*uint32(maxl); j++ {
 
 						//println("at", v, i)
@@ -299,9 +378,6 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 						v = alphabet[j&1][i%uint32(maxl)]
 						//fmt.Println(letter)
 
-						if letter[j&1][i%uint32(maxl)] != 0 {
-							letter[j&1][i%uint32(maxl)] = ((uint32(i) % max) + 1)
-						}
 						imodmax := (uint32(i) % max)
 						if (set[imodmax>>2]>>((imodmax&3)<<1))&3 != byte(0) {
 							if (set[imodmax>>2]>>((imodmax&3)<<1))&3 == (byte((j^1)&1) + 1) {
@@ -328,63 +404,29 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					mutex.RUnlock()
 				}
 
-				for i := range letter[0] {
-					letter[0][i] = hash.Hash(alphabet[0][i], s, max)
-				}
-				for i := range letter[1] {
-					letter[1][i] = hash.Hash(alphabet[1][i], s, max)
-				}
-
-				sort.Slice(letter[0], func(i, j int) bool { return letter[0][i] < letter[0][j] })
-				sort.Slice(letter[1], func(i, j int) bool { return letter[1][i] < letter[1][j] })
-				q, size := 0, 0
-				{
-					// Indices for the two slices
-					i, j := 0, 0
-					for i < len(letter[0]) && j < len(letter[1]) {
-						if letter[0][i] == letter[1][j] {
-							//panic("algorithm bad")
+				// cubic verify
+				var int0, int1 uint64
+				for i := uint32(0); i < maxl; i++ {
+					var v = hash.Hash(alphabet[0][i], s, max)
+					int0 |= 1 << v
+					for j := uint32(0); j < maxl; j++ {
+						var w = hash.Hash(alphabet[1][j], s, max)
+						if v == w {
 							continue outer
-						} else if letter[0][i] < letter[1][j] {
-							i++
-							size++
-							if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
-								q--
-								size--
-							}
-						} else {
-							j++
-							if j < len(letter[1]) && letter[1][j] == letter[1][j-1] {
-								q++
-							}
 						}
-					}
-					for i < len(letter[0]) {
-						i++
-						size++
-						if i < len(letter[0]) && letter[0][i] == letter[0][i-1] {
-							q--
-							size--
-						}
-					}
-					for j < len(letter[1]) {
-						j++
-						if j < len(letter[1]) && letter[1][j] == letter[1][j-1] {
-							q++
-						}
+						int1 |= 1 << v
 					}
 				}
-
-				letter[0] = nil
-				letter[1] = nil
-
-				if q != 0 {
+				// enforce match for small solutions
+				int0 = uint64(bits.OnesCount64(int0))
+				int1 = uint64(bits.OnesCount64(int1))
+				if maxl < 64 && int0 != int1 {
 					continue outer
 				}
 
 				mutex.Lock()
 				if h.DisableProgressBar {
-					println("Size: ", size, "Modulo:", max)
+					println("Size: ", "?", "Modulo:", max)
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {

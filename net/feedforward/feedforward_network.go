@@ -166,11 +166,13 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 					return
 				}
 			}
+			in = inter
 			for l_post := l + 2; l_post < f.LenLayers(); l_post += 2 {
 				in, _ = f.Forward(in, l_post, -1, 0)
 			}
 			predicted[neg] = in
 		}
+
 		if !less(predicted[0], output) && !less(predicted[1], output) &&
 			!less(output, predicted[0]) && !less(output, predicted[1]) {
 			// we are correct anyway

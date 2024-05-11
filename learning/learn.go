@@ -378,21 +378,21 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				letter[0] = nil
 				letter[1] = nil
 
-				if q == 0 {
-					mutex.Lock()
-					if h.DisableProgressBar {
-						println("Size: ", size, "Modulo:", max)
-					}
-					//println("{", s, ",", max, "}, // ", len(set0))
-					if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
-						out[0] = s
-						out[1] = uint32(max)
-					}
-					mutex.Unlock()
-					return
-				} else {
+				if q != 0 {
 					continue outer
 				}
+
+				mutex.Lock()
+				if h.DisableProgressBar {
+					println("Size: ", size, "Modulo:", max)
+				}
+				//println("{", s, ",", max, "}, // ", len(set0))
+				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
+					out[0] = s
+					out[1] = uint32(max)
+				}
+				mutex.Unlock()
+				return
 			}
 		}(byte(t))
 	}

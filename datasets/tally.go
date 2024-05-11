@@ -27,6 +27,12 @@ func (t *Tally) Init() {
 	t.correct = make(map[uint32]int64)
 	t.improve = make(map[uint32]int64)
 }
+// Init frees the memory occupied by tally dataset structure
+func (t *Tally) Free() {
+	t.mapping = nil
+	t.correct = nil
+	t.improve = nil
+}
 
 // Len estimates the size of tally
 func (t *Tally) Len() int {

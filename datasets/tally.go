@@ -35,13 +35,16 @@ func (t *Tally) Free() {
 }
 
 // Len estimates the size of tally
-func (t *Tally) Len() int {
+func (t *Tally) Len() (o int) {
+	t.mut.Lock()
 	if len(t.mapping) != 0 {
-		return len(t.mapping)
+		o = len(t.mapping)
+	} else {
+		// we can't do better estimate now
+		o = len(t.correct) + len(t.improve)
 	}
-
-	// we can't do better estimate now
-	return len(t.correct) + len(t.improve)
+	t.mut.Unlock()
+	return
 }
 // Improve votes for feature which improved the overall result
 func (t *Tally) AddToImprove(feature uint32, vote int8) {

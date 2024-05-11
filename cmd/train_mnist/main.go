@@ -118,8 +118,8 @@ func main() {
 		println(quality[0], errsum[0], quality[1], errsum[1])
 	}
 
-	evaluate()
 	for {
+		evaluate()
 		for worst := 0; worst < net.Len(); worst++ {
 			trainWorst(worst)
 		}

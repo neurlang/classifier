@@ -9,6 +9,7 @@ func (s *MajPool2D) Put(n int, v bool) {
 // Disregard tells whether putting value false at position n would not affect
 // any feature output (as opposed to putting value true at position n).
 func (s *MajPool2D) Disregard(n int) bool {
+	orign := n
 	matrix := s.width * s.height * s.subwidth * s.subheight
 	base := (n / matrix) * matrix
 	n %= matrix
@@ -16,13 +17,16 @@ func (s *MajPool2D) Disregard(n int) bool {
 	n *= (s.subwidth * s.subheight)
 	var w int
 	for m := 0; m < int(s.subheight)*int(s.subwidth); m++ {
+		if orign == base + m + n {
+			continue
+		}
 		if (s.vec)[base + m + n] {
 			w++
 		} else {
 			w--
 		}
 	}
-	return !(w == -1 || w == +1)
+	return w != 0
 }
 
 // Feature returns the m-th feature from the combiner.

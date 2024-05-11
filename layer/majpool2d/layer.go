@@ -1,6 +1,7 @@
 package majpool2d
 
 import "github.com/neurlang/classifier/layer"
+import "fmt"
 
 type MajPool2DLayer struct {
 	width, height, subwidth, subheight, repeat int
@@ -13,11 +14,10 @@ type MajPool2D struct {
 
 // New creates a new MajPool2D layer with size, subsize and repeat
 func New(width, height, subwidth, subheight, repeat int) (o *MajPool2DLayer, err error) {
-	return MustNew(width, height, subwidth, subheight, repeat), nil
-}
-
-// MustNew creates a new MajPool2D layer with size, subsize and repeat
-func MustNew(width, height, subwidth, subheight, repeat int) (o *MajPool2DLayer) {
+	submatrix := subwidth * subheight
+	if submatrix & 1 == 0 {
+		return nil, fmt.Errorf("even matrix")
+	}
 	o = new(MajPool2DLayer)
 	o.width = width
 	o.height = height
@@ -25,6 +25,15 @@ func MustNew(width, height, subwidth, subheight, repeat int) (o *MajPool2DLayer)
 	o.subheight = subheight
 	o.repeat = repeat
 	return
+}
+
+// MustNew creates a new MajPool2D layer with size, subsize and repeat
+func MustNew(width, height, subwidth, subheight, repeat int) (*MajPool2DLayer) {
+	o, err := New(width, height, subwidth, subheight, repeat)
+	if err != nil {
+		panic(err.Error())
+	}
+	return o
 }
 
 // Lay turns MajPool2D layer into a combiner

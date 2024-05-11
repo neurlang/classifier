@@ -108,7 +108,7 @@ looop:
 		var sol [2]uint32
 		if max == 1 && maxl == 1 {
 			sol = h.Reduce1(&alphabet2)
-		} else if maxl <= 2 {
+		} else if maxl == 2 {
 			sol = h.Reduce2(&alphabet2)
 		} else {
 			sol = h.Reduce(max, maxl, &alphabet2)

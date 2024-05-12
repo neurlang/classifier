@@ -3,6 +3,7 @@ package hashtron
 import "errors"
 import "bytes"
 
+// intToBuf converts integer into a buffer
 func intToBuf(n uint32) (buf []byte) {
 	var buffer [10]byte
 	buf = buffer[:]
@@ -16,10 +17,12 @@ func intToBuf(n uint32) (buf []byte) {
 	return
 }
 
+// isNameChar reports whether the name of hashtron is valid
 func isNameChar(c rune) bool {
 	return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || (c == '_')
 }
 
+// BytesBuffer serializes hashtron into a golang code program
 func (h Hashtron) BytesBuffer(name string, eol ...byte) (b *bytes.Buffer, err error) {
 	if len(eol) == 0 || len(eol) == 1 || len(eol) == 2 {
 		if len(eol) != 0 && !(eol[0] == '\r' || eol[0] == '\n' || eol[0] == ';') {

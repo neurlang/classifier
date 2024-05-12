@@ -1,3 +1,4 @@
+// Package full implements a fully connected layer and combiner
 package full
 
 type FullLayer struct {

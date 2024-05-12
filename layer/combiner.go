@@ -1,3 +1,4 @@
+// Package layer defines a custom combiner and layer interface
 package layer
 
 

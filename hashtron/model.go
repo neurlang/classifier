@@ -1,7 +1,7 @@
-// Package Hashtron implements a hashtron (artifical neuron)
+// Package Hashtron implements a hashtron (classifier)
 package hashtron
 
-// Hashtron represents individual hashtron (artifical neuron) in memory
+// Hashtron represents individual hashtron (classifier) in memory
 type Hashtron struct {
 	program [][2]uint32
 	bits    byte

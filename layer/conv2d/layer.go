@@ -1,3 +1,4 @@
+// Package conv2d implements a 2D bit-convolution layer and combiner
 package conv2d
 
 import "fmt"

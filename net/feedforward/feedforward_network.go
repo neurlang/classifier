@@ -1,3 +1,4 @@
+// Package feedforward implements a feedforward network type
 package feedforward
 
 import "github.com/neurlang/classifier/hashtron"
@@ -5,17 +6,25 @@ import "github.com/neurlang/classifier/layer"
 import "github.com/neurlang/classifier/datasets"
 import "sync"
 
+// Intermediate is an intermediate value used as both layer input and layer output in optimization
 type Intermediate interface {
+
+	// Feature extracts n-th feature from Intermediate
 	Feature(n int) uint32
+
+	// Disregard reports whether Intermediate doesn't regard n-th bit as affecting the output
 	Disregard(n int) bool
 }
 
 // SingleValue is a single value returned by the final layer
 type SingleValue uint32
 
+// Feature extracts the feature from SingleValue
 func (v SingleValue) Feature(n int) uint32 {
 	return uint32(v)
 }
+
+// Disregard reports whether SingleValue doesn't regard n-th bit as affecting the output
 func (v SingleValue) Disregard(n int) bool {
 	return false
 }

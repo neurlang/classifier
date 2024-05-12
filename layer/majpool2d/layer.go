@@ -1,3 +1,4 @@
+// Package majpool2d implements a 2D majority pooling layer and combiner
 package majpool2d
 
 import "github.com/neurlang/classifier/layer"

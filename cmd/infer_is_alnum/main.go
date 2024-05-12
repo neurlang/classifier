@@ -1,3 +1,4 @@
+// Infer on Is Alnum dataset
 package main
 
 import "github.com/neurlang/classifier/inference"

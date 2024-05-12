@@ -1,3 +1,4 @@
+// Package MNIST is the 60000 + 10000 handwritten digits dataset
 package mnist
 
 import "os"
@@ -40,23 +41,27 @@ var TrainLabels, InferLabels []byte
 const SmallImgSize = 13
 var SmallTrainSet, SmallInferSet [][SmallImgSize*SmallImgSize]byte
 
-
+// SmallInput is the type of small input image
 type SmallInput [SmallImgSize*SmallImgSize]byte
+
+// Feature extracts the n-th feature from small input
 func (i *SmallInput) Feature(n int) uint32 {
 	n %= ((SmallImgSize-1)*(SmallImgSize-1))
 	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+SmallImgSize])<<16 | uint32(i[n+1+SmallImgSize])<<24
 }
 
 
-
+// Input is the type of input image
 type Input [ImgSize*ImgSize]byte
+
+// Feature extracts the n-th feature from input
 func (i *Input) Feature(n int) uint32 {
 	n %= ((ImgSize-1)*(ImgSize-1))
 	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+ImgSize])<<16 | uint32(i[n+1+ImgSize])<<24
 }
 
 
-// Shuffle shuffles the mnist train dataset
+// ShuffleTrain shuffles the mnist train dataset
 func ShuffleTrain() {
 	rand.Shuffle(len(TrainLabels), func(i, j int) {
 		TrainLabels[i], TrainLabels[j] = TrainLabels[j], TrainLabels[i]
@@ -64,7 +69,7 @@ func ShuffleTrain() {
 		SmallTrainSet[i], SmallTrainSet[j] = SmallTrainSet[j], SmallTrainSet[i]
 	})
 }
-// Shuffle shuffles the mnist infer dataset
+// ShuffleInfer shuffles the mnist infer dataset
 func ShuffleInfer() {
 	rand.Shuffle(len(InferLabels), func(i, j int) {
 		InferLabels[i], InferLabels[j] = InferLabels[j], InferLabels[i]
@@ -89,6 +94,8 @@ func max4(a, b, c, d byte) (o byte) {
 
 var success byte
 var globalErr error
+
+// Error reports whether there was any error initializing the dataset
 func Error() error {
 	// are 4 files loaded?
 	if success == 4 {

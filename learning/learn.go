@@ -383,7 +383,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				var set = make([]byte, (max+3)/4, (max+3)/4)
 
 				{
-					max_recip := real_modulo_recip(max)
+					//max_recip := real_modulo_recip(max)
 					maxl_recip := real_modulo_recip(maxl)
 					var i uint32 = 0
 					var v = alphabet[0][i]
@@ -395,7 +395,10 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 						//fmt.Println(letter)
 
 						// imodmax = i % max, but i is at worst 2*max-1
-						imodmax := uint32((uint64(((i+1) * max_recip)) * uint64(max)) >> 32)
+						imodmax := i
+						if i >= max {
+							i -= max
+						}
 						if (set[imodmax>>2]>>((imodmax&3)<<1))&3 != byte(0) {
 							if (set[imodmax>>2]>>((imodmax&3)<<1))&3 == (byte((j^1)&1) + 1) {
 								if modulo_t(j) > h.Printer {

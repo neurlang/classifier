@@ -36,8 +36,10 @@ func BenchmarkModOperator(b *testing.B) {
 }
 func BenchmarkTwiceModOperator(b *testing.B) {
 	var out uint32
-	var mod = uint32(b.N)
-	for i := uint32(0); i < 2*uint32(b.N); i++ {
+	var mod = uint32(b.N)/2+1
+	for i := uint32(0); i < uint32(b.N); i++ {
+		mod ++
+		mod --
 		out ^= i % mod
 	}
 	println(uint32(b.N), out)
@@ -54,8 +56,8 @@ func BenchmarkRealModulo(b *testing.B) {
 
 func BenchmarkTwiceIfModulo(b *testing.B) {
 	var out uint32
-	var mod = uint32(b.N)
-	for i := uint32(0); i < 2*uint32(b.N); i++ {
+	var mod = uint32(b.N)/2+1
+	for i := uint32(0); i < uint32(b.N); i++ {
 		if i >= mod {
 			out ^= i - mod
 		} else {

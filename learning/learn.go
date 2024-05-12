@@ -106,7 +106,7 @@ looop:
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
-		if max == 1 && maxl == 1 {
+		if maxl == 1 {
 			sol = h.Reduce1(&alphabet2)
 		} else if maxl == 2 {
 			sol = h.Reduce2(&alphabet2)

@@ -27,7 +27,7 @@ func main() {
 	net.NewLayer(l0Dim*l0Dim, 0)
 	net.NewCombiner(conv2d.MustNew(27, 27, 16, 16, 1))
 	net.NewLayer(l1Dim*l1Dim, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 1))
+	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
 	net.NewLayer(1, 4)
 
 	//Load(net)

@@ -342,6 +342,17 @@ func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 	return
 }
 
+// we do this only once for a faster modulo
+func real_modulo_recip(y uint32) uint32 {
+	return uint32((uint64(1<<32)) / (uint64(y)))
+}
+
+//X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
+// manually inlined in reduce
+func real_modulo(x, recip, y uint32) uint32 {
+	return uint32((uint64(uint32((x+1) * recip)) * uint64(y)) >> 32)
+}
+
 // where is used to kill threads when it increases
 var where byte
 var mutex sync.RWMutex
@@ -372,16 +383,19 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				var set = make([]byte, (max+3)/4, (max+3)/4)
 
 				{
+					max_recip := real_modulo_recip(max)
+					maxl_recip := real_modulo_recip(maxl)
 					var i uint32 = 0
 					var v = alphabet[0][i]
 					for j := uint32(0); j < 2*uint32(maxl); j++ {
 
 						//println("at", v, i)
 						i = hash.Hash(v, s, max)
-						v = alphabet[j&1][i%uint32(maxl)]
+						v = alphabet[j&1][uint32((uint64(((i+1) * maxl_recip)) * uint64(maxl)) >> 32)]
 						//fmt.Println(letter)
 
-						imodmax := (uint32(i) % max)
+						// imodmax = i % max, but i is at worst 2*max-1
+						imodmax := uint32((uint64(((i+1) * max_recip)) * uint64(max)) >> 32)
 						if (set[imodmax>>2]>>((imodmax&3)<<1))&3 != byte(0) {
 							if (set[imodmax>>2]>>((imodmax&3)<<1))&3 == (byte((j^1)&1) + 1) {
 								if modulo_t(j) > h.Printer {

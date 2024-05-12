@@ -242,12 +242,12 @@ func (h *HyperParameters) Reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 				}
 				mutex.Lock()
 				if h.DisableProgressBar {
-					println("Size: ", "1", "Modulo:", "2")
+					println("Size: ", "2", "Modulo:", "3")
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
 					out[0] = s
-					out[1] = 2
+					out[1] = 3
 				}
 				mutex.Unlock()
 				return

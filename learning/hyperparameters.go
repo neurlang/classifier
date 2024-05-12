@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// SetLogger sets the output logger file where hashtron golang code programs are written
 func (h *HyperParameters) SetLogger(filename string) {
 	outfile, _ := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	h.l = log.New(outfile, "", 0)
@@ -20,9 +21,13 @@ type HyperParameters struct {
 	DeadlineMs    int    // deadline in milliseconds to throw away incomplete solution attempt
 	DeadlineRetry int    // retry from scratch after this many failed deadlines
 
+	// Factor is how hard to try to come up with a smaller solution (default: 1)
+	// Usually set equal to Subtractor
 	Factor uint32
 
-	Subtractor uint32 // stesub
+	// Subtractor is how hard to try to come up with a smaller solution (default: 1)
+	// Usually set equal to Factor
+	Subtractor uint32
 
 	InitialLimit int // initial limit of how small the solution must be to be saved to disk
 

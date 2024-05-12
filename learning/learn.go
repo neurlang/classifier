@@ -15,6 +15,7 @@ import "github.com/neurlang/classifier/hashtron"
 
 type modulo_t = uint32
 
+// Training trains a single hashtron on a dataset d. It outputs the trained hashtron if successful, or an error.
 func (h *HyperParameters) Training(d datasets.Splitter) (*hashtron.Hashtron, error) {
 
 	if h.EOL == nil || len(h.EOL) == 0 {
@@ -61,6 +62,8 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
+// Solve directly solves a single hashtron on a splitted dataset d. It outputs the size of solution
+// and the trained hashtron if successful. Most callers should use Training instead.
 func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hashtron) {
 
 	if len(d[1]) == 0 && len(d[0]) == 0 {
@@ -107,11 +110,11 @@ looop:
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
 		if maxl == 1 {
-			sol = h.Reduce1(&alphabet2)
+			sol = h.reduce1(&alphabet2)
 		} else if maxl == 2 {
-			sol = h.Reduce2(&alphabet2)
+			sol = h.reduce2(&alphabet2)
 		} else {
-			sol = h.Reduce(max, maxl, &alphabet2)
+			sol = h.reduce(max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -204,7 +207,7 @@ looop:
 	return h.InitialLimit, nil
 }
 
-func (h *HyperParameters) Reduce2(alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -277,7 +280,7 @@ func (h *HyperParameters) Reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 	return
 }
 
-func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -343,7 +346,7 @@ func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 var where byte
 var mutex sync.RWMutex
 
-func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++

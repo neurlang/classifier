@@ -4,8 +4,10 @@ package datasets
 import "math/rand"
 import "sort"
 
+// Dataset holds keys mapped to booleans
 type Dataset map[uint32]bool
 
+// Init initializes the Dataset
 func (d *Dataset) Init() {
 	*d = make(map[uint32]bool)
 }
@@ -24,8 +26,10 @@ func (d Dataset) Split() (o SplittedDataset) {
 	return
 }
 
+// Datamap holds keys mapped to values
 type Datamap map[uint16]uint64
 
+// Init initializes the Datamap
 func (d *Datamap) Init() {
 	*d = make(map[uint16]uint64)
 }
@@ -83,12 +87,15 @@ func (d Datamap) Reduce(whole bool) (o Datamap) {
 	return
 }
 
+// Splitter is a dataset that can be split into a SplittedDataset
 type Splitter interface {
 	Split() (o SplittedDataset)
 }
 
+// SplittedDataset is a dataset that has been split into the false set and true set
 type SplittedDataset [2]map[uint32]struct{}
 
+// Init initializes a SplittedDataset
 func (d *SplittedDataset) Init() {
 	d[0] = make(map[uint32]struct{})
 	d[1] = make(map[uint32]struct{})
@@ -118,5 +125,3 @@ func BalanceDataset(d SplittedDataset) SplittedDataset {
 	}
 	return d
 }
-
-

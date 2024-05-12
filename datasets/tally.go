@@ -2,6 +2,7 @@ package datasets
 
 import "sync"
 
+// Tally is used to count votes on dataset features and return the majority votes
 type Tally struct {
 	// this is for multiway classification layers
 	// each input has a map of possible outputs with number of votes
@@ -27,7 +28,7 @@ func (t *Tally) Init() {
 	t.correct = make(map[uint32]int64)
 	t.improve = make(map[uint32]int64)
 }
-// Init frees the memory occupied by tally dataset structure
+// Free frees the memory occupied by tally dataset structure
 func (t *Tally) Free() {
 	t.mapping = nil
 	t.correct = nil

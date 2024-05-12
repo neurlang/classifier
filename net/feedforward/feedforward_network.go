@@ -208,6 +208,6 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		}
 		ifeature := uint32(in.Feature(0))
 
-		tally.AddToCorrect(ifeature, 1)
+		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1) - 1)
 	}
 }

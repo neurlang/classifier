@@ -52,7 +52,7 @@ If you are annoyed by Backtracking printed too often, then increase the Printer
 ## Multi classifier
 
 You can also train a N-way (instead of binary) classifier. Simply use the Datamap.
-Datamap is `map[uint16][uint16]` internally. You can fill it with custom data and then
+Datamap is `map[uint16][uint64]` internally. You can fill it with custom data and then
 initialize the hyperparameters and train as usual.
 
 ```

@@ -10,8 +10,7 @@ type Intermediate interface {
 	Disregard(n int) bool
 }
 
-// SingleValue
-
+// SingleValue is a single value returned by the final layer
 type SingleValue uint32
 
 func (v SingleValue) Feature(n int) uint32 {
@@ -21,16 +20,19 @@ func (v SingleValue) Disregard(n int) bool {
 	return false
 }
 
+// FeedforwardNetworkInput is one individual input to the feedforward network
 type FeedforwardNetworkInput interface {
 	Feature(n int) uint32
 }
 
+// FeedforwardNetwork is the feedforward network
 type FeedforwardNetwork struct {
 	layers    [][]hashtron.Hashtron
 	mapping   []bool
 	combiners []layer.Layer
 }
 
+// Len returns the number of hashtrons which need to be trained inside the network.
 func (f FeedforwardNetwork) Len() (o int) {
 	for _, v := range f.layers {
 		o += len(v)
@@ -38,10 +40,12 @@ func (f FeedforwardNetwork) Len() (o int) {
 	return
 }
 
+// LenLayers returns the number of layers. Each Layer and Combiner counts as a layer here.
 func (f FeedforwardNetwork) LenLayers() int {
 	return len(f.layers)
 }
 
+// GetLayer gets the layer number of hashtron based on hashtron number. Returns -1 on failure.
 func (f FeedforwardNetwork) GetLayer(n int) int {
 	for i, v := range f.layers {
 		if n < len(v) {
@@ -52,6 +56,8 @@ func (f FeedforwardNetwork) GetLayer(n int) int {
 	return -1
 }
 
+// GetPosition gets the position of hashtron within layer based on the overall
+// hashtron number. Returns -1 on failure.
 func (f FeedforwardNetwork) GetPosition(n int) int {
 	for _, v := range f.layers {
 		if n < len(v) {
@@ -62,6 +68,8 @@ func (f FeedforwardNetwork) GetPosition(n int) int {
 	return -1
 }
 
+// GetLayerPosition gets the position of hashtron within layer based on the
+// overall hashtron number and overall layer. Returns -1 on failure.
 func (f FeedforwardNetwork) GetLayerPosition(l, n int) int {
 	for i, v := range f.layers {
 		if n < len(v) {
@@ -76,6 +84,8 @@ func (f FeedforwardNetwork) GetLayerPosition(l, n int) int {
 	return -1
 }
 
+// GetHashtron gets n-th hashtron pointer in the network. You can currently write
+// a new hashtron into the pointer, but you might not be able to in the future.
 func (f FeedforwardNetwork) GetHashtron(n int) *hashtron.Hashtron {
 	for _, v := range f.layers {
 		if n < len(v) {
@@ -86,6 +96,7 @@ func (f FeedforwardNetwork) GetHashtron(n int) *hashtron.Hashtron {
 	return nil
 }
 
+// NewLayer adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits.
 func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 	var layer = make([]hashtron.Hashtron, n)
 	for i := range layer {
@@ -97,18 +108,24 @@ func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 	f.combiners = append(f.combiners, nil)
 }
 
+
+// NewCombiner adds a combiner layer to the end of network
 func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.layers = append(f.layers, nil)
 	f.mapping = append(f.mapping, false)
 	f.combiners = append(f.combiners, layer)
 }
 
+
+// IsMapLayerOf checks if hashtron n lies in the final layer of the network.
 func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 	if f.GetLayer(n) == -1 {
 		return false
 	}
 	return f.mapping[f.GetLayer(n)]
 }
+
+// Infer infers the network output based on input
 func (f FeedforwardNetwork) Infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
 		in, _ = f.Forward(in, l_prev, -1, 0)
@@ -116,6 +133,8 @@ func (f FeedforwardNetwork) Infer(in FeedforwardNetworkInput) (ouput Feedforward
 	return in
 }
 
+// Forward solves the intermediate value (net output after layer l based on that layer's input in) and the bit
+// returned by worst hashtron is optionally negated (using neg == 1) and returned as computed.
 func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg int) (inter Intermediate, computed bool) {
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var combiner = f.combiners[l+1].Lay()
@@ -144,6 +163,9 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 	return nil, false
 }
 
+// Tally tallies the network on input/output pair with respect to to-be-trained worst hashtron.
+// The tally is stored into thread safe structure Tally. Two ouputs i, j can be compared to be less
+// worse using the function less (returning true if output i is less worse than output j).
 func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {

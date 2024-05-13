@@ -118,6 +118,7 @@ looop:
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
+				println("Restart", maxl, max, "/", maxmax)
 				max++
 				continue looop
 			}
@@ -137,6 +138,18 @@ looop:
 			}
 			alphabet[n] = dst
 		}
+		var correct = len(alphabet[0]) + len(alphabet[1]) < 10
+		if correct {
+outer:
+			for n := uint32(0); n < 2; n++ {
+				for _, v := range alphabet[n] {
+					if v & 1 != n {
+						correct = false
+						break outer
+					}
+				}
+			}
+		}
 		for n := 0; n < 2; n++ {
 			for len(alphabet[n]) < len(alphabet[n^1]) {
 				var w = uint32(uint16(rand.Uint32()))
@@ -153,7 +166,7 @@ looop:
 
 		maxl = modulo_t(len(alphabet[0]))
 
-		if maxl < 2 {
+		if correct || maxl < 2 {
 			if len(d) == 2 {
 				if alphabet[0][0]&1 == 1 {
 					continue looop
@@ -203,6 +216,9 @@ looop:
 		if max <= 1 {
 			max = 1
 		}
+		if max <= maxl {
+			max = maxl + 1
+		}
 	}
 	return h.InitialLimit, nil
 }
@@ -226,10 +242,10 @@ func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 				} else {
 					mutex.RUnlock()
 				}
-				h00 := hash.Hash(alphabet[0][0], s, 3)
-				h01 := hash.Hash(alphabet[0][1], s, 3)
-				h10 := hash.Hash(alphabet[1][0], s, 3)
-				h11 := hash.Hash(alphabet[1][1], s, 3)
+				h00 := hash.Hash(alphabet[0][0], s, 2)
+				h01 := hash.Hash(alphabet[0][1], s, 2)
+				h10 := hash.Hash(alphabet[1][0], s, 2)
+				h11 := hash.Hash(alphabet[1][1], s, 2)
 
 				if h00 == h10 || h00 == h11 {
 					continue outer
@@ -245,12 +261,12 @@ func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 				}
 				mutex.Lock()
 				if h.DisableProgressBar {
-					println("Size: ", "2", "Modulo:", "3")
+					println("Size: ", "2", "Modulo:", "2")
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
 					out[0] = s
-					out[1] = 3
+					out[1] = 2
 				}
 				mutex.Unlock()
 				return
@@ -273,7 +289,7 @@ func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 		out[1] = ^uint32(0)
 		mutex.Unlock()
 		if h.DisableProgressBar {
-			println("Deadline")
+			println("Deadline 2")
 		}
 	}
 
@@ -335,7 +351,7 @@ func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 		out[1] = ^uint32(0)
 		mutex.Unlock()
 		if h.DisableProgressBar {
-			println("Deadline")
+			println("Deadline 1")
 		}
 	}
 
@@ -383,6 +399,9 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 				// two linear passes amortize the complexity of finding error in the cubic stage
 				for q := uint32(1); q <= 2; q++{
+					if maxl <= 4 {
+						break
+					}
 					var set = make([]byte, (max+3)/4, (max+3)/4)
 					//max_recip := real_modulo_recip(max)
 					maxl_recip := real_modulo_recip(maxl)
@@ -441,7 +460,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 				mutex.Lock()
 				if h.DisableProgressBar {
-					println("Size: ", "?", "Modulo:", max)
+					println("Size: ", maxl, "Modulo:", max)
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {

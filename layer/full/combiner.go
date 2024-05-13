@@ -9,8 +9,8 @@ func (f *Full) Put(n int, v bool) {
 // Feature returns the n-th feature from the combiner. Next layer reads
 // its inputs using this method for hashtron n in the next layer.
 func (f *Full) Feature(n int) (o uint32) {
-	n *= f.bits
-	for pos := n; pos < n+f.bits && pos < len(f.vec); pos++ {
+	n *= int(f.bits)
+	for pos := n; pos < n+int(f.maxbits) && pos < len(f.vec); pos++ {
 		o <<= 1
 		if f.vec[pos] {
 			o |= 1

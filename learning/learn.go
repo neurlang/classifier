@@ -1,7 +1,7 @@
 // Package Learning implements the learning stage of the Neurlang classifier
 package learning
 
-import "math/bits"
+//import "math/bits"
 import "fmt"
 import "sync"
 import "math/rand"
@@ -380,9 +380,10 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				} else {
 					mutex.RUnlock()
 				}
-				var set = make([]byte, (max+3)/4, (max+3)/4)
 
-				{
+				// two linear passes amortize the complexity of finding error in the cubic stage
+				for q := uint32(1); q <= 2; q++{
+					var set = make([]byte, (max+3)/4, (max+3)/4)
 					//max_recip := real_modulo_recip(max)
 					maxl_recip := real_modulo_recip(maxl)
 					var i uint32 = 0
@@ -391,14 +392,11 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 						//println("at", v, i)
 						i = hash.Hash(v, s, max)
-						v = alphabet[j&1][uint32((uint64(((i+1) * maxl_recip)) * uint64(maxl)) >> 32)]
+						v = alphabet[j&1][uint32((uint64(((i+q) * maxl_recip)) * uint64(maxl)) >> 32)]
 						//fmt.Println(letter)
 
 						// imodmax = i % max, but i is at worst 2*max-1
 						imodmax := i
-						if i >= max {
-							i -= max
-						}
 						if (set[imodmax>>2]>>((imodmax&3)<<1))&3 != byte(0) {
 							if (set[imodmax>>2]>>((imodmax&3)<<1))&3 == (byte((j^1)&1) + 1) {
 								if modulo_t(j) > h.Printer {
@@ -411,38 +409,35 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 						}
 						set[imodmax>>2] |= (byte(j&1) + 1) << ((imodmax & 3) << 1)
 					}
-				}
-
-				set = nil
-
-				// exit if other thread won
-				mutex.RLock()
-				if my_where != where || out[0] != 0 || out[1] != 0 {
-					mutex.RUnlock()
-					return
-				} else {
-					mutex.RUnlock()
+					// exit if other thread won
+					mutex.RLock()
+					if my_where != where || out[0] != 0 || out[1] != 0 {
+						mutex.RUnlock()
+						return
+					} else {
+						mutex.RUnlock()
+					}
 				}
 
 				// cubic verify
-				var int0, int1 uint64
+				//var int0, int1 uint64
 				for i := uint32(0); i < maxl; i++ {
 					var v = hash.Hash(alphabet[0][i], s, max)
-					int0 |= 1 << v
+					//int0 |= 1 << v
 					for j := uint32(0); j < maxl; j++ {
 						var w = hash.Hash(alphabet[1][j], s, max)
 						if v == w {
 							continue outer
 						}
-						int1 |= 1 << v
+						//int1 |= 1 << v
 					}
 				}
 				// enforce match for small solutions
-				int0 = uint64(bits.OnesCount64(int0))
-				int1 = uint64(bits.OnesCount64(int1))
-				if maxl < 64 && int0 != int1 {
-					continue outer
-				}
+				//int0 = uint64(bits.OnesCount64(int0))
+				//int1 = uint64(bits.OnesCount64(int1))
+				//if max < 64 && int0 != int1 {
+				//	continue outer
+				//}
 
 				mutex.Lock()
 				if h.DisableProgressBar {

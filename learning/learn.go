@@ -118,7 +118,6 @@ looop:
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
-				println("Restart", maxl, max, "/", maxmax)
 				max++
 				continue looop
 			}

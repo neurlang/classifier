@@ -286,6 +286,7 @@ func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 		mutex.Lock()
 		out[0] = ^uint32(0)
 		out[1] = ^uint32(0)
+		where++
 		mutex.Unlock()
 		if h.DisableProgressBar {
 			println("Deadline 2")
@@ -348,6 +349,7 @@ func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 		mutex.Lock()
 		out[0] = ^uint32(0)
 		out[1] = ^uint32(0)
+		where++
 		mutex.Unlock()
 		if h.DisableProgressBar {
 			println("Deadline 1")
@@ -395,12 +397,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				} else {
 					mutex.RUnlock()
 				}
-
-				// two linear passes amortize the complexity of finding error in the cubic stage
-				for q := uint32(1); q <= 2; q++{
-					if maxl <= 4 {
-						break
-					}
+				if maxl > 4{
 					var set = make([]byte, (max+3)/4, (max+3)/4)
 					//max_recip := real_modulo_recip(max)
 					maxl_recip := real_modulo_recip(maxl)
@@ -410,7 +407,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 						//println("at", v, i)
 						i = hash.Hash(v, s, max)
-						v = alphabet[j&1][uint32((uint64(((i+q) * maxl_recip)) * uint64(maxl)) >> 32)]
+						v = alphabet[j&1][uint32((uint64(((i+1) * maxl_recip)) * uint64(maxl)) >> 32)]
 						//fmt.Println(letter)
 
 						// imodmax = i % max, but i is at worst 2*max-1
@@ -456,7 +453,13 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				//if max < 64 && int0 != int1 {
 				//	continue outer
 				//}
-
+				mutex.RLock()
+				if my_where != where || out[0] != 0 || out[1] != 0 {
+					mutex.RUnlock()
+					return
+				} else {
+					mutex.RUnlock()
+				}
 				mutex.Lock()
 				if h.DisableProgressBar {
 					println("Size: ", maxl, "Modulo:", max)
@@ -485,6 +488,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		mutex.Lock()
 		out[0] = ^uint32(0)
 		out[1] = ^uint32(0)
+		where++
 		mutex.Unlock()
 		if h.DisableProgressBar {
 			println("Deadline")

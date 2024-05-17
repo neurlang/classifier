@@ -2,7 +2,6 @@
 package majpool2d
 
 import "github.com/neurlang/classifier/layer"
-import "fmt"
 
 type MajPool2DLayer struct {
 	width, height, subwidth, subheight, capwidth, capheight, repeat int
@@ -15,10 +14,6 @@ type MajPool2D struct {
 
 // New creates a new MajPool2D layer with size, subsize and repeat
 func New(width, height, subwidth, subheight, capwidth, capheight, repeat int) (o *MajPool2DLayer, err error) {
-	submatrix := subwidth * subheight
-	if submatrix&1 == 0 {
-		return nil, fmt.Errorf("even matrix")
-	}
 	o = new(MajPool2DLayer)
 	o.width = width
 	o.height = height

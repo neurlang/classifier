@@ -61,7 +61,7 @@ func (t *Tally) AddToImprove(feature uint32, vote int8) {
 		return
 	}
 	t.mut.Lock()
-	if t.isFinalization {
+	if !t.isFinalization {
 		t.improve[feature] += int64(vote)
 		if t.improve[feature] == 0 {
 			delete(t.improve, feature)

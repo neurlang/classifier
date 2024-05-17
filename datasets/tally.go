@@ -83,22 +83,30 @@ func (t *Tally) AddToCorrect(feature uint32, vote int8) {
 	t.mut.Unlock()
 }
 
-// AddToMap adds feature maps to this output votes to mapping
-func (t *Tally) AddToMap(feature uint16, output uint64, votes uint32) {
+// AddToMapAll adds feature maps to all output votes to mapping
+func (t *Tally) AddToMapAll(feature uint16, output uint64, loss func(n uint32) uint32, max uint32) {
 	t.mut.Lock()
-	if votes > 1 && t.isFinalization {
-		votes = 1
-	}
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
-	t.mapping[feature][output] += uint64(votes)
+	if !t.isFinalization {
+		for i := uint32(0); i < max; i++ {
+			t.mapping[feature][uint64(i)] += uint64(max) - uint64(loss(i))
+		}
+	} else {
+		t.mapping[feature][output] ++
+	}
 	t.mut.Unlock()
 }
 
-// AddToMapping adds feature maps to this output vote to mapping
+// AddToMap adds feature maps to this output votes to mapping
 func (t *Tally) AddToMapping(feature uint16, output uint64) {
-	t.AddToMap(feature, output, 1)
+	t.mut.Lock()
+	if t.mapping[feature] == nil {
+		t.mapping[feature] = make(map[uint64]uint64)
+	}
+	t.mapping[feature][output] ++
+	t.mut.Unlock()
 }
 
 // Split Splits the tally structure into a splitted dataset

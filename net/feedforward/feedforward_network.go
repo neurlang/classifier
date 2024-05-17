@@ -38,7 +38,7 @@ type FeedforwardNetworkInput interface {
 // FeedforwardNetwork is the feedforward network
 type FeedforwardNetwork struct {
 	layers    [][]hashtron.Hashtron
-	mapping   []bool
+	mapping   []byte
 	combiners []layer.Layer
 	premodulo []uint32
 }
@@ -120,7 +120,7 @@ func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
 		layer[i] = *h
 	}
 	f.layers = append(f.layers, layer)
-	f.mapping = append(f.mapping, bits > 1)
+	f.mapping = append(f.mapping, bits)
 	f.combiners = append(f.combiners, nil)
 	f.premodulo = append(f.premodulo, premodulo)
 }
@@ -129,7 +129,7 @@ func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
 // NewCombiner adds a combiner layer to the end of network
 func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.layers = append(f.layers, nil)
-	f.mapping = append(f.mapping, false)
+	f.mapping = append(f.mapping, 0)
 	f.combiners = append(f.combiners, layer)
 	f.premodulo = append(f.premodulo, 0)
 }
@@ -140,7 +140,7 @@ func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 	if f.GetLayer(n) == -1 {
 		return false
 	}
-	return f.mapping[f.GetLayer(n)]
+	return f.mapping[f.GetLayer(n)] > 0
 }
 
 // Infer infers the network output based on input
@@ -162,7 +162,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 			go func(i int) {
 				var feat = in.Feature(i)
 				if f.premodulo[l] != 0 {
-					feat = uint32((uint64(feat) * uint64(f.premodulo[l])) >> 32)
+					feat = hash.Hash(feat, 0, f.premodulo[l])
 				}
 				var bit = f.layers[l][i].Forward(feat, (i == worst) && (neg == 1))
 				combiner.Put(i, bit&1 != 0)
@@ -175,10 +175,16 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		wg.Wait()
 		return combiner, computed
 	}
-	if len(f.mapping) > l && f.mapping[l] {
+	if len(f.mapping) > l && f.mapping[l] > 0 {
+		if f.premodulo[l] != 0 {
+			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
+		}
 		var val = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
 		return SingleValue(val), false
 	} else {
+		if f.premodulo[l] != 0 {
+			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
+		}
 		var bit = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
 		return SingleValue(bit & 1), (bit & 1) != 0
 	}
@@ -188,7 +194,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 // Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the
 // output is correct, below or equal to maxloss otherwise.
 func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally,
-	loss func(i FeedforwardNetworkInput) uint32, maxloss uint32) {
+	loss func(i FeedforwardNetworkInput) uint32) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
@@ -196,7 +202,7 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 		})
 		return
 	}
-	if len(f.mapping) > l && f.mapping[l] {
+	if len(f.mapping) > l && f.mapping[l] > 0 {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
@@ -204,7 +210,11 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 		if f.premodulo[l] != 0 {
 			ifeature = uint16(hash.Hash(uint32(ifeature), 0, f.premodulo[l]))
 		}
-		tally.AddToMap(ifeature, uint64(output.Feature(0)), maxloss-loss(output)+1)
+		//out, _ := f.Forward(in, l, -1, 0)
+
+		tally.AddToMapAll(ifeature, uint64(output.Feature(0)), func(n uint32) uint32 {
+			return loss(SingleValue(n))
+		}, uint32(1) << f.mapping[l])
 	} else {
 		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)
@@ -270,7 +280,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 			tally.AddToImprove(ifw, compute[1])
 		}
 	}
-	if len(f.mapping) > l && f.mapping[l] {
+	if len(f.mapping) > l && f.mapping[l] > 0 {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}

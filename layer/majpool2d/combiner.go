@@ -26,7 +26,7 @@ func (s *MajPool2D) Disregard(n int) bool {
 			w--
 		}
 		if m == 0 && submatrix & 1 == 0 {
-			w <<= 1
+			w *= 2
 		}
 	}
 	return w != 0
@@ -51,7 +51,7 @@ func (s *MajPool2D) Feature(m int) (o uint32) {
 					w--
 				}
 				if m == 0 && submatrix & 1 == 0 {
-					w <<= 1
+					w *= 2
 				}
 			}
 			o <<= 1

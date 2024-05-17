@@ -20,6 +20,9 @@ type Tally struct {
 	improve map[uint32]int64
 
 	mut sync.Mutex
+
+	// isFinalization reports whether we are in the finalization stage
+	isFinalization bool
 }
 
 // Init initializes the tally dataset structure
@@ -33,6 +36,11 @@ func (t *Tally) Free() {
 	t.mapping = nil
 	t.correct = nil
 	t.improve = nil
+}
+
+// SetFinalization sets isFinalization and enables the final stage of training
+func (t *Tally) SetFinalization(final bool) {
+	t.isFinalization = final
 }
 
 // Len estimates the size of tally
@@ -53,9 +61,11 @@ func (t *Tally) AddToImprove(feature uint32, vote int8) {
 		return
 	}
 	t.mut.Lock()
-	t.improve[feature] += int64(vote)
-	if t.improve[feature] == 0 {
-		delete(t.improve, feature)
+	if t.isFinalization {
+		t.improve[feature] += int64(vote)
+		if t.improve[feature] == 0 {
+			delete(t.improve, feature)
+		}
 	}
 	t.mut.Unlock()
 }
@@ -73,14 +83,22 @@ func (t *Tally) AddToCorrect(feature uint32, vote int8) {
 	t.mut.Unlock()
 }
 
-// AddToMapping adds feature maps to this output vote to mapping
-func (t *Tally) AddToMapping(feature uint16, output uint64) {
+// AddToMap adds feature maps to this output votes to mapping
+func (t *Tally) AddToMap(feature uint16, output uint64, votes uint32) {
 	t.mut.Lock()
+	if votes > 1 && t.isFinalization {
+		votes = 1
+	}
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
-	t.mapping[feature][output]++
+	t.mapping[feature][output] += uint64(votes)
 	t.mut.Unlock()
+}
+
+// AddToMapping adds feature maps to this output vote to mapping
+func (t *Tally) AddToMapping(feature uint16, output uint64) {
+	t.AddToMap(feature, output, 1)
 }
 
 // Split Splits the tally structure into a splitted dataset

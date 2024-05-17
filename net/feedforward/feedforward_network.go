@@ -2,6 +2,7 @@
 package feedforward
 
 import "github.com/neurlang/classifier/hashtron"
+import "github.com/neurlang/classifier/hash"
 import "github.com/neurlang/classifier/layer"
 import "github.com/neurlang/classifier/datasets"
 import "sync"
@@ -39,6 +40,7 @@ type FeedforwardNetwork struct {
 	layers    [][]hashtron.Hashtron
 	mapping   []bool
 	combiners []layer.Layer
+	premodulo []uint32
 }
 
 // Len returns the number of hashtrons which need to be trained inside the network.
@@ -107,6 +109,11 @@ func (f FeedforwardNetwork) GetHashtron(n int) *hashtron.Hashtron {
 
 // NewLayer adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits.
 func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
+	f.NewLayerP(n, bits, 0)
+}
+
+// NewLayerP adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits, and input feature pre-modulo.
+func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
 	var layer = make([]hashtron.Hashtron, n)
 	for i := range layer {
 		h, _ := hashtron.New(nil, bits)
@@ -115,6 +122,7 @@ func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 	f.layers = append(f.layers, layer)
 	f.mapping = append(f.mapping, bits > 1)
 	f.combiners = append(f.combiners, nil)
+	f.premodulo = append(f.premodulo, premodulo)
 }
 
 
@@ -123,6 +131,7 @@ func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.layers = append(f.layers, nil)
 	f.mapping = append(f.mapping, false)
 	f.combiners = append(f.combiners, layer)
+	f.premodulo = append(f.premodulo, 0)
 }
 
 
@@ -151,7 +160,11 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		for i := range f.layers[l] {
 			wg.Add(1)
 			go func(i int) {
-				var bit = f.layers[l][i].Forward(in.Feature(i), (i == worst) && (neg == 1))
+				var feat = in.Feature(i)
+				if f.premodulo[l] != 0 {
+					feat = uint32((uint64(feat) * uint64(f.premodulo[l])) >> 32)
+				}
+				var bit = f.layers[l][i].Forward(feat, (i == worst) && (neg == 1))
 				combiner.Put(i, bit&1 != 0)
 				if i == worst {
 					computed = bit&1 != 0
@@ -185,6 +198,9 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifw := in.Feature(f.GetPosition(worst))
+		if f.premodulo[l] != 0 {
+			ifw = hash.Hash(ifw, 0, f.premodulo[l])
+		}
 		for neg := 0; neg < 2; neg++ {
 			inter, computed := f.Forward(in, l, f.GetPosition(worst), neg)
 			if computed {
@@ -231,14 +247,18 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifeature := uint16(in.Feature(0))
-
+		if f.premodulo[l] != 0 {
+			ifeature = uint16(hash.Hash(uint32(ifeature), 0, f.premodulo[l]))
+		}
 		tally.AddToMapping(ifeature, uint64(output.Feature(0)))
 	} else {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifeature := uint32(in.Feature(0))
-
+		if f.premodulo[l] != 0 {
+			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
+		}
 		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1) - 1)
 	}
 }

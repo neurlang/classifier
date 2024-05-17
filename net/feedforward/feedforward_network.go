@@ -185,6 +185,34 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 	return nil, false
 }
 
+// Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the
+// output is correct, below or equal to maxloss otherwise.
+func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally,
+	loss func(i FeedforwardNetworkInput) uint32, maxloss uint32) {
+	l := f.GetLayer(worst)
+	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
+		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+			return loss(i) < loss(j)
+		})
+		return
+	}
+	if len(f.mapping) > l && f.mapping[l] {
+		for l_prev := 0; l_prev < l; l_prev += 2 {
+			in, _ = f.Forward(in, l_prev, -1, 0)
+		}
+		ifeature := uint16(in.Feature(0))
+		if f.premodulo[l] != 0 {
+			ifeature = uint16(hash.Hash(uint32(ifeature), 0, f.premodulo[l]))
+		}
+		tally.AddToMap(ifeature, uint64(output.Feature(0)), maxloss-loss(output)+1)
+	} else {
+		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+			return loss(i) < loss(j)
+		})
+		return
+	}
+}
+
 // Tally tallies the network on input/output pair with respect to to-be-trained worst hashtron.
 // The tally is stored into thread safe structure Tally. Two ouputs i, j can be compared to be less
 // worse using the function less (returning true if output i is less worse than output j).

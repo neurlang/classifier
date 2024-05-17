@@ -22,19 +22,32 @@ func main() {
 		panic(err.Error())
 	}
 	var net feedforward.FeedforwardNetwork
-	const l0Dim = mnist.ImgSize - 1
-	const l1Dim = mnist.SmallImgSize - 1
-	net.NewLayer(l0Dim*l0Dim, 0)
-	net.NewCombiner(conv2d.MustNew(27, 27, 16, 16, 1))
-	net.NewLayer(l1Dim*l1Dim, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
-	net.NewLayer(1, 4)
+
+	//net.NewLayerP(121*121, 0, 1031)
+	//net.NewCombiner(conv2d.MustNew(121, 121, 6, 6, 1))
+	//net.NewLayer(116*116, 0)
+	//net.NewCombiner(majpool2d.MustNew(116, 116, 2, 2, 1, 1, 1))
+	//net.NewLayerP(58*58, 0, 1031)
+	//net.NewCombiner(conv2d.MustNew(58, 58, 5, 5, 1))
+	//net.NewLayer(54*54, 0)
+	//net.NewCombiner(majpool2d.MustNew(54, 54, 2, 2, 1, 1, 1))
+
+	net.NewLayerP(27*27, 0, 2053) //2053
+	net.NewCombiner(conv2d.MustNew(27, 27, 4, 4, 1))
+	net.NewLayer(24*24, 0)
+	net.NewCombiner(majpool2d.MustNew(24, 24, 2, 2, 1, 1, 1))
+	net.NewLayer(12*12, 0)
+	net.NewCombiner(conv2d.MustNew(12, 12, 3, 3, 1))
+	net.NewLayer(10*10, 0)
+	net.NewCombiner(majpool2d.MustNew(5, 5, 2, 2, 5, 5, 1))
+	net.NewLayerP(1, 4, 2053) //2053
 
 	//Load(net)
 
 	trainWorst := func(worst int) {
 		var tally = new(datasets.Tally)
 		tally.Init()
+		//tally.SetFinalization(false)
 
 		const group = 500
 		for j := 0; j < len(mnist.InferLabels); j+=group {
@@ -45,8 +58,8 @@ func main() {
 					var input = mnist.Input(mnist.InferSet[jjj])
 					var output = feedforward.SingleValue(mnist.InferLabels[jjj])
 
-					net.Tally(&input, &output, worst, tally, func(i, j feedforward.FeedforwardNetworkInput) bool {
-						return error_abs(i.Feature(0), output.Feature(0)) < error_abs(j.Feature(0), output.Feature(0))
+					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
+						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
 					})
 					wg.Done()
 
@@ -81,7 +94,7 @@ func main() {
 		h.EndWhenSolved = true
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions10.txt")
+		h.SetLogger("solutions14.txt")
 
 		fmt.Println(worst, tally.Len())
 

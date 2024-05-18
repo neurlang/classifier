@@ -38,5 +38,7 @@ type HyperParameters struct {
 	Name string // override model name
 	EOL  []byte // override EOL string
 
+	CuMemoryBytes uint64
+
 	l *log.Logger
 }

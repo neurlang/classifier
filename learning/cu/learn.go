@@ -542,7 +542,18 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 	for _, v := range alphabet[1] {
 		alphabetCUDA = append(alphabetCUDA, v)
 	}
-	off[0], off[1] = reduceCUDA(1000000, max, maxl, alphabetCUDA)
+	mem := h.CuMemoryBytes
+	if mem == 0 {
+		// 1 GB default
+		mem = 1000000000
+
+		// raise if big problem
+		if mem < uint64((max+3)/4)) {
+			mem = uint64((max+3)/4))
+		}
+	}
+
+	off[0], off[1] = reduceCUDA(int(mem/uint64((max+3)/4)), max, maxl, alphabetCUDA)
 
 	return
 }

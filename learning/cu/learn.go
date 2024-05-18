@@ -515,7 +515,5 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 	}
 	off[0], off[1] = reduceCUDA(1, 10000000, max, maxl, alphabetCUDA)
 
-	println(off[0], off[1])
-
 	return
 }

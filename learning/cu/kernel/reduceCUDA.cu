@@ -65,9 +65,6 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 		//__syncthreads();
 		if (maxl > 4) {
 			uint8_t* set = &d_set[tid * ((max + 3) / 4)];
-			for (uint32_t i = 0; i < ((max + 3) / 4); i++) {
-				set[i] = 0;
-			}
 			uint32_t i = 0;
 			uint32_t v = alphabet[i];
 			for (uint32_t j = 0; j < 2 * maxl; j++) {
@@ -108,7 +105,13 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 
 		return;
 
-		next_iteration:;
+		next_iteration:
+		{
+			uint8_t* set = &d_set[tid * ((max + 3) / 4)];
+			for (uint32_t i = 0; i < ((max + 3) / 4); i++) {
+				set[i] = 0;
+			}
+		}
 	}
 }
 

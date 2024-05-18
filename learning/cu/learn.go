@@ -457,6 +457,8 @@ func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result
 	}
 	defer cu.MemFree(d_set)
 
+	cu.MemsetD8(d_set, 0, setSize)
+
 	// Copy data from host to device
 	err = cu.MemcpyHtoD(d_input, unsafe.Pointer(&alphabet[0]), inputSize)
 	if err != nil {

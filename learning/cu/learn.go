@@ -548,8 +548,8 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		mem = 1000000000
 
 		// raise if big problem
-		if mem < uint64((max+3)/4)) {
-			mem = uint64((max+3)/4))
+		if mem < uint64((max+3)/4) {
+			mem = uint64((max+3)/4)
 		}
 	}
 

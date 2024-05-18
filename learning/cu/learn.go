@@ -379,7 +379,43 @@ func real_modulo(x, recip, y uint32) uint32 {
 var where byte
 var mutex sync.RWMutex
 
-func reduceCUDA(blk, grid, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
+
+func nvTasks(tasks int) [2][3]int {
+	const (
+		MaxThreadsPerBlock = 1024
+		MaxGridDimX        = 1024
+		MaxGridDimY        = 1024
+		MaxGridDimZ        = 64
+	)
+
+	// Calculate the number of blocks needed in each dimension
+	blockTasks := MaxThreadsPerBlock
+	numBlocksX := (tasks + blockTasks - 1) / blockTasks
+	numBlocksY := 1
+	numBlocksZ := 1
+
+	// Check if the number of blocks exceeds the maximum dimensions
+	if numBlocksX > MaxGridDimX {
+		numBlocksY = (numBlocksX + MaxGridDimX - 1) / MaxGridDimX
+		numBlocksX = MaxGridDimX
+	}
+
+	if numBlocksY > MaxGridDimY {
+		numBlocksZ = (numBlocksY + MaxGridDimY - 1) / MaxGridDimY
+		numBlocksY = MaxGridDimY
+	}
+
+	if numBlocksZ > MaxGridDimZ {
+		fmt.Println("Too many tasks for the GPU.")
+		return [2][3]int{}
+	}
+
+	// Return the optimized block and grid dimensions
+	return [2][3]int{{32, 32, 1}, {numBlocksX, numBlocksY, numBlocksZ}}
+}
+
+
+func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
 	var (
 		d_input  cu.DevicePtr
 		d_result cu.DevicePtr
@@ -401,7 +437,7 @@ func reduceCUDA(blk, grid, max, maxl uint32, alphabet []uint32) (result0, result
 	// Allocate device memory
 	inputSize := int64(maxl) * 2 * int64(unsafe.Sizeof(uint32(0)))
 	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
-	setSize := int64(blk * grid) * int64((max + 3) / 4) * int64(unsafe.Sizeof(uint8(0)))
+	setSize := int64(tasks) * int64((max + 3) / 4) * int64(unsafe.Sizeof(uint8(0)))
 
 	d_input, err = cu.MemAlloc(inputSize)
 	if err != nil {
@@ -432,10 +468,8 @@ func reduceCUDA(blk, grid, max, maxl uint32, alphabet []uint32) (result0, result
 	if err != nil {
 		fmt.Printf("Failed to load module: %v", err)
 	}
-	againfn, err := mod.Function("again")
-	if err != nil {
-		fmt.Printf("Failed to get function: %v", err)
-	}
+
+
 	fn, err := mod.Function("reduce")
 	if err != nil {
 		fmt.Printf("Failed to get function: %v", err)
@@ -443,8 +477,8 @@ func reduceCUDA(blk, grid, max, maxl uint32, alphabet []uint32) (result0, result
 
 	stream, err := cu.MakeStream(cu.DefaultStream)
 
-	grd := [...]int{int(grid), 1, 1}
-	blc := [...]int{int(blk), 1, 1}
+	x := nvTasks(tasks)
+
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&d_set),
 		unsafe.Pointer(&max),
@@ -452,20 +486,13 @@ func reduceCUDA(blk, grid, max, maxl uint32, alphabet []uint32) (result0, result
 		unsafe.Pointer(&d_input),
 		unsafe.Pointer(&d_result),
 	}
-	err = againfn.LaunchAndSync(grd[0], grd[1], grd[2], blc[0], blc[1], blc[2], 0, stream, nil)
+
+
+	err = fn.LaunchAndSync(x[1][0], x[1][1], x[1][2], x[0][0], x[0][1], x[0][2], 0, stream, args)
 	if err != nil {
 		fmt.Printf("Failed to launch kernel: %v", err)
 	}
 
-
-	err = fn.LaunchAndSync(grd[0], grd[1], grd[2], blc[0], blc[1], blc[2], 0, stream, args)
-	if err != nil {
-		fmt.Printf("Failed to launch kernel: %v", err)
-	}
-
-	mutex.Lock()
-	where++
-	mutex.Unlock()
 
 	// Copy result from device to host
 	err = cu.MemcpyDtoH(unsafe.Pointer(&result[0]), d_result, resultSize)
@@ -513,7 +540,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 	for _, v := range alphabet[1] {
 		alphabetCUDA = append(alphabetCUDA, v)
 	}
-	off[0], off[1] = reduceCUDA(1, 10000000, max, maxl, alphabetCUDA)
+	off[0], off[1] = reduceCUDA(1000000, max, maxl, alphabetCUDA)
 
 	return
 }

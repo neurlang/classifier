@@ -39,23 +39,30 @@ __device__ uint32_t real_modulo(uint32_t x, uint32_t recip, uint32_t y) {
 
 __device__ int exitFlag = 0;
 
-extern "C" __global__ void again() {
-	atomicExch(&exitFlag, 0);
-	__syncthreads();
-}
 
 extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, uint32_t *alphabet, uint32_t* out) {
+	int myFlag = atomicAdd(&exitFlag, 0);
+	__syncthreads();
+	uint32_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32_t tid_y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint32_t tid_z = blockIdx.z * blockDim.z + threadIdx.z;
 
-	uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32_t numThreads_x = gridDim.x * blockDim.x;
+	uint32_t numThreads_y = gridDim.y * blockDim.y;
+	uint32_t numThreads_z = gridDim.z * blockDim.z;
+
+	uint32_t tid = tid_x + tid_y * numThreads_x + tid_z * (numThreads_x * numThreads_y);
+
+	uint32_t totalThreads = numThreads_x * numThreads_y * numThreads_z;
 	uint32_t s = tid;
 	uint32_t maxl_recip = real_modulo_recip(maxl);
 	clock_t start = clock();
 
-	for (; ((clock() - start) / (float)CLOCKS_PER_SEC < 1.0f); s += gridDim.x * blockDim.x) {
-		if (atomicAdd(&exitFlag, 0) != 0) {
+	for (; ((clock() - start) / (float)CLOCKS_PER_SEC < 0.1f); s += totalThreads) {
+		if (atomicAdd(&exitFlag, 0) != myFlag) {
 			return;
 		}
-		__syncthreads();
+		//__syncthreads();
 		if (maxl > 4) {
 			uint8_t* set = &d_set[tid * ((max + 3) / 4)];
 			for (uint32_t i = 0; i < ((max + 3) / 4); i++) {
@@ -75,11 +82,11 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 				}
 				set[imodmax >> 2] |= (j & 1) + 1 << ((imodmax & 3) << 1);
 			}
+			if (atomicAdd(&exitFlag, 0) != myFlag) {
+				return;
+			}
+			//__syncthreads();
 		}
-		if (atomicAdd(&exitFlag, 0) != 0) {
-			return;
-		}
-		__syncthreads();
 		for (uint32_t i = 0; i < maxl; i++) {
 			uint32_t v = hash(alphabet[i], s, max);
 			for (uint32_t j = 0; j < maxl; j++) {
@@ -89,15 +96,15 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 				}
 			}
 		}
-		if (atomicAdd(&exitFlag, 0) != 0) {
+		if (atomicAdd(&exitFlag, 0) != myFlag) {
 			return;
 		}
-		__syncthreads();
+		//__syncthreads();
 		// Atomic operations to update output
 		out[0] = s;
 		out[1] = max;
 		atomicAdd(&exitFlag, 1);
-		__syncthreads();
+		//__syncthreads();
 
 		return;
 

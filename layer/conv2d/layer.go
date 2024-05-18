@@ -6,16 +6,18 @@ import "github.com/neurlang/classifier/layer"
 
 type Conv2DLayer struct {
 	width, height, subwidth, subheight, repeat int
+	shift int
 }
 
 type Conv2D struct {
 	vec []bool
 	width, height, subwidth, subheight, repeat int
+	shift int
 }
 
 // MustNew creates a new Conv2D layer with size, subsize and repeat
 func MustNew(width, height, subwidth, subheight, repeat int) *Conv2DLayer {
-	o, err := New(width, height, subwidth, subheight, repeat)
+	o, err := New2(width, height, subwidth, subheight, repeat, 0)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -23,6 +25,19 @@ func MustNew(width, height, subwidth, subheight, repeat int) *Conv2DLayer {
 }
 // New creates a new Conv2D layer with size, subsize and repeat
 func New(width, height, subwidth, subheight, repeat int) (o *Conv2DLayer, err error) {
+	return New2(width, height, subwidth, subheight, repeat, 0)
+}
+
+// MustNew/ creates a new Conv2D layer with size, subsize and repeat
+func MustNew2(width, height, subwidth, subheight, repeat int, shift int) *Conv2DLayer {
+	o, err := New(width, height, subwidth, subheight, repeat)
+	if err != nil {
+		panic(err.Error())
+	}
+	return o
+}
+// New/ creates a new Conv2D layer with size, subsize and repeat
+func New2(width, height, subwidth, subheight, repeat int, shift int) (o *Conv2DLayer, err error) {
 	if width < subwidth {
 		return nil, fmt.Errorf("New Conv2D: Width %d is lower than Subwidth %d", width, subwidth)
 	}
@@ -35,6 +50,7 @@ func New(width, height, subwidth, subheight, repeat int) (o *Conv2DLayer, err er
 	o.subwidth = subwidth
 	o.subheight = subheight
 	o.repeat = repeat
+	o.shift = shift
 	return
 }
 

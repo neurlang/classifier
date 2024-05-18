@@ -16,8 +16,18 @@ func (f *Conv2D) Feature(n int) (o uint32) {
 	ny := nin / (f.height - f.subheight + 1)
 	nx := nin % (f.width - f.subwidth + 1)
 
+	var shift int
+	for i := 1; i <= f.shift; i <<= 1 {
+		shift++
+	}
+
 	for i := 0; i < f.subheight; i++ {
 	for j := 0; j < f.subwidth; j++ {
+		if f.shift != 0 {
+			if (i * f.subwidth + j) % f.shift == 0 {
+				o <<= shift
+			}
+		}
 		if (f.vec)[nadd + (f.width*ny+nx)+(f.width*i+j)] {
 			o++
 		}

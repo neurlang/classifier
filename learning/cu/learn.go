@@ -485,7 +485,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
 	}
-
+/*
 	fmt.Printf("\nCUDA version: %v\n", cu.Version())
 	devices, err := cu.NumDevices()
 	if err != nil {
@@ -505,7 +505,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		fmt.Printf("Memory    :\t%v bytes\n", mem)
 		fmt.Printf("Compute   : \t%d.%d\n\n", maj, min)
 	}
-
+*/
 	alphabetCUDA := make([]uint32, 0, maxl*2)
 	for _, v := range alphabet[0] {
 		alphabetCUDA = append(alphabetCUDA, v)

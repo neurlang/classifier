@@ -114,7 +114,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 		}
 	}
 }
-
+/*
 extern "C" void reduceCUDA(uint32_t blk, uint32_t grid, uint32_t max, uint32_t maxl,
 				uint32_t *alphabet, uint32_t* result0, uint32_t* result1)
 {
@@ -141,3 +141,4 @@ extern "C" void reduceCUDA(uint32_t blk, uint32_t grid, uint32_t max, uint32_t m
 
 	return;
 }
+*/

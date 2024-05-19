@@ -64,7 +64,7 @@
 	mul.lo.s64 	%rd19, %rd18, %rd16;
 	add.s64 	%rd3, %rd19, %rd14;
 	cvt.u32.u64 	%r251, %rd3;
-	setp.gt.u32 	%p1, %r251, %r36;
+	setp.ge.u32 	%p1, %r251, %r36;
 	@%p1 bra 	$L__BB0_29;
 
 	cvt.u64.u32 	%rd4, %r34;

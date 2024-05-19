@@ -53,7 +53,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 
 	uint32_t s = tid;
 
-	if (s > tasks) {
+	if (s >= tasks) {
 		// stop unwanted threads
 		return;
 	}

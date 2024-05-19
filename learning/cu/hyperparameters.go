@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+import "gorgonia.org/cu"
+
 // SetLogger sets the output logger file where hashtron golang code programs are written
 func (h *HyperParameters) SetLogger(filename string) {
 	outfile, _ := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -38,7 +40,15 @@ type HyperParameters struct {
 	Name string // override model name
 	EOL  []byte // override EOL string
 
-	CuMemoryBytes uint64
+	CuMemoryBytes   uint64 // statically set memory
+	CuMemoryPortion uint16 // how many percent of gpu memory to use. 2=half, 3=third
+
+	ctx                *cu.CUContext
+	set, input, result *cu.DevicePtr
+	fn, fn1, fn2       *cu.Function
+	stream             *cu.Stream
+	backoff            uint64
+	iter               uint32
 
 	l *log.Logger
 }

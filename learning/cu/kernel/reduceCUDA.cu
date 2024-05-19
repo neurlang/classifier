@@ -37,34 +37,37 @@ __device__ uint32_t real_modulo(uint32_t x, uint32_t recip, uint32_t y) {
 	return uint32_t((uint64_t(uint32_t((x + 1) * recip)) * uint64_t(y)) >> 32);
 }
 
-__device__ int exitFlag = 0;
+__device__ static int exitFlag = 0;
 
 
-extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, uint32_t *alphabet, uint32_t* out) {
-	int myFlag = atomicAdd(&exitFlag, 0);
-	__syncthreads();
-	uint32_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
-	uint32_t tid_y = blockIdx.y * blockDim.y + threadIdx.y;
-	uint32_t tid_z = blockIdx.z * blockDim.z + threadIdx.z;
+extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, uint32_t *alphabet, uint32_t* out, uint32_t timeMs, uint32_t tasks, uint32_t iteration) {
+	int myFlag = iteration;
+	uint64_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint64_t tid_y = blockIdx.y * blockDim.y + threadIdx.y;
+	uint64_t tid_z = blockIdx.z * blockDim.z + threadIdx.z;
 
-	uint32_t numThreads_x = gridDim.x * blockDim.x;
-	uint32_t numThreads_y = gridDim.y * blockDim.y;
-	uint32_t numThreads_z = gridDim.z * blockDim.z;
+	uint64_t numThreads_x = gridDim.x * blockDim.x;
+	uint64_t numThreads_y = gridDim.y * blockDim.y;
 
-	uint32_t tid = tid_x + tid_y * numThreads_x + tid_z * (numThreads_x * numThreads_y);
+	uint64_t tid = tid_x + tid_y * numThreads_x + tid_z * (numThreads_x * numThreads_y);
 
-	uint32_t totalThreads = numThreads_x * numThreads_y * numThreads_z;
 	uint32_t s = tid;
+
+	if (s > tasks) {
+		// stop unwanted threads
+		return;
+	}
+
 	uint32_t maxl_recip = real_modulo_recip(maxl);
 	clock_t start = clock();
 
-	for (; ((clock() - start) / (float)CLOCKS_PER_SEC < 0.1f); s += totalThreads) {
-		if (atomicAdd(&exitFlag, 0) != myFlag) {
+	for (; (((clock() - start) / (float)CLOCKS_PER_SEC) < (((float)timeMs)*(float)0.001f)); s += tasks) {
+		if (atomicAdd(&exitFlag, 0) > myFlag) {
 			return;
 		}
 		//__syncthreads();
 		if (maxl > 4) {
-			uint8_t* set = &d_set[tid * ((max + 3) / 4)];
+			uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
 			uint32_t i = 0;
 			uint32_t v = alphabet[i];
 			for (uint32_t j = 0; j < 2 * maxl; j++) {
@@ -79,7 +82,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 				}
 				set[imodmax >> 2] |= (j & 1) + 1 << ((imodmax & 3) << 1);
 			}
-			if (atomicAdd(&exitFlag, 0) != myFlag) {
+			if (atomicAdd(&exitFlag, 0) > myFlag) {
 				return;
 			}
 			//__syncthreads();
@@ -93,52 +96,24 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, u
 				}
 			}
 		}
-		if (atomicAdd(&exitFlag, 0) != myFlag) {
+		if (atomicAdd(&exitFlag, 0) > myFlag) {
 			return;
 		}
 		//__syncthreads();
 		// Atomic operations to update output
 		out[0] = s;
 		out[1] = max;
-		atomicAdd(&exitFlag, 1);
+		atomicExch(&exitFlag, myFlag+1);
 		//__syncthreads();
 
 		return;
 
 		next_iteration:
 		{
-			uint8_t* set = &d_set[tid * ((max + 3) / 4)];
+			uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
 			for (uint32_t i = 0; i < ((max + 3) / 4); i++) {
 				set[i] = 0;
 			}
 		}
 	}
 }
-/*
-extern "C" void reduceCUDA(uint32_t blk, uint32_t grid, uint32_t max, uint32_t maxl,
-				uint32_t *alphabet, uint32_t* result0, uint32_t* result1)
-{
-	uint32_t result[2] = {0,0};
-
-	uint32_t *d_input;
-	uint32_t *d_result;
-	uint8_t *d_set;
-
-	int blockSize = (int)blk;
-	int gridSize = (int)grid;
-	cudaMalloc((void**)&d_input, sizeof(uint32_t) * maxl * 2);
-	cudaMalloc((void**)&d_result, sizeof(uint32_t) * 2);
-	cudaMalloc((void**)&d_set, sizeof(uint8_t) * blockSize * gridSize);
-	cudaMemcpy(d_input, alphabet, sizeof(uint32_t) * maxl * 2, cudaMemcpyHostToDevice);
-	reduce<<<gridSize, blockSize>>>(d_set, max, maxl, d_input, d_result);
-	cudaMemcpy(&result, d_result, sizeof(uint32_t) * 2, cudaMemcpyDeviceToHost);
-	cudaFree(d_input);
-	cudaFree(d_result);
-	cudaFree(d_set);
-
-	*result0 = result[0];
-	*result1 = result[1];
-
-	return;
-}
-*/

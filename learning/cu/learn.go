@@ -67,6 +67,26 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
+func (h *HyperParameters) cudaTasks(max uint32) int {
+	mem := h.CuMemoryBytes
+	if mem == 0 {
+		memory, err := cu.Device(0).TotalMem()
+		if err == nil {
+			portion := uint64(h.CuMemoryPortion)
+			if portion == 0 {
+				// 1/384 of device by default
+				portion = 384
+			}
+			mem = uint64(memory) / portion
+		}
+		// raise if big problem
+		if mem < uint64(((max+3)/4)+4) {
+			mem = uint64(((max + 3) / 4) + 4)
+		}
+	}
+	return int(mem / uint64(((max+3)/4)+4))
+}
+
 // Solve directly solves a single hashtron on a splitted dataset d. It outputs the size of solution
 // and the trained hashtron if successful. Most callers should use Training instead.
 func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hashtron) {
@@ -103,6 +123,15 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
+
+	defer h.destroyCUDA()
+	if h.initCUDA(max, maxl, h.cudaTasks(max)) != nil {
+		h.backoff++
+		time.Sleep(time.Duration(h.backoff) * time.Millisecond)
+		h.backoff <<= 1
+		return h.InitialLimit, nil
+	}
+
 looop:
 	for max <= maxmax {
 		if !h.DisableProgressBar {
@@ -142,12 +171,12 @@ looop:
 			}
 			alphabet[n] = dst
 		}
-		var correct = len(alphabet[0]) + len(alphabet[1]) < 10
+		var correct = len(alphabet[0])+len(alphabet[1]) < 10
 		if correct {
-outer:
+		outer:
 			for n := uint32(0); n < 2; n++ {
 				for _, v := range alphabet[n] {
-					if v & 1 != n {
+					if v&1 != n {
 						correct = false
 						break outer
 					}
@@ -366,19 +395,18 @@ func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 
 // we do this only once for a faster modulo
 func real_modulo_recip(y uint32) uint32 {
-	return uint32((uint64(1<<32)) / (uint64(y)))
+	return uint32((uint64(1 << 32)) / (uint64(y)))
 }
 
-//X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
+// X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
 // manually inlined in reduce
 func real_modulo(x, recip, y uint32) uint32 {
-	return uint32((uint64(uint32((x+1) * recip)) * uint64(y)) >> 32)
+	return uint32((uint64(uint32((x+1)*recip)) * uint64(y)) >> 32)
 }
 
 // where is used to kill threads when it increases
 var where byte
 var mutex sync.RWMutex
-
 
 func nvTasks(tasks int) [2][3]int {
 	const (
@@ -414,8 +442,82 @@ func nvTasks(tasks int) [2][3]int {
 	return [2][3]int{{32, 32, 1}, {numBlocksX, numBlocksY, numBlocksZ}}
 }
 
+func (h *HyperParameters) initCUDA(max, maxl uint32, tasks int) error {
 
-func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
+	// Initialize CUDA
+	device, err := cu.GetDevice(0)
+	if err != nil {
+		fmt.Printf("Failed to get device: %v", err)
+		return err
+	}
+	ctx, err := device.MakeContext(cu.SchedAuto)
+	if err != nil {
+		fmt.Printf("Failed to create context: %v", err)
+		return err
+	}
+	cu.SetCurrentContext(ctx)
+	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
+	d_set, err := cu.MemAlloc(setSize)
+	if err != nil {
+		fmt.Printf("Failed to allocate device memory for set: %v", err)
+		return err
+	}
+	inputSize := int64(maxl) * 2 * int64(unsafe.Sizeof(uint32(0)))
+	d_input, err := cu.MemAlloc(inputSize)
+	if err != nil {
+		fmt.Printf("Failed to allocate device memory for input: %v", err)
+		return err
+	}
+	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
+	d_result, err := cu.MemAlloc(resultSize)
+	if err != nil {
+		fmt.Printf("Failed to allocate device memory for result: %v", err)
+		return err
+	}
+	// Launch the kernel
+	mod, err := cu.LoadData(kernel.PTXreduceCUDA)
+	if err != nil {
+		fmt.Printf("Failed to load module: %v", err)
+		return err
+	}
+
+	fn, err := mod.Function("reduce")
+	if err != nil {
+		fmt.Printf("Failed to get function: %v", err)
+		return err
+	}
+
+	stream, err := cu.MakeStream(cu.DefaultStream)
+	h.ctx = &ctx
+	h.set = &d_set
+	h.input = &d_input
+	h.result = &d_result
+	h.fn = &fn
+	h.stream = &stream
+	return nil
+}
+func (h *HyperParameters) destroyCUDA() {
+	h.fn = nil
+	h.stream = nil
+	if h.set != nil {
+		cu.MemFree(*h.set)
+		h.set = nil
+	}
+	if h.input != nil {
+		cu.MemFree(*h.input)
+		h.input = nil
+	}
+	if h.result != nil {
+		cu.MemFree(*h.result)
+		h.result = nil
+	}
+	if h.ctx != nil {
+		h.ctx.Destroy()
+		h.ctx = nil
+	}
+}
+
+func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
 	var (
 		d_input  cu.DevicePtr
 		d_result cu.DevicePtr
@@ -423,39 +525,29 @@ func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result
 		result   [2]uint32
 	)
 
-	// Initialize CUDA
-	device, err := cu.GetDevice(0)
-	if err != nil {
-		fmt.Printf("Failed to get device: %v", err)
-	}
-	ctx, err := device.MakeContext(cu.SchedAuto)
-	if err != nil {
-		fmt.Printf("Failed to create context: %v", err)
-	}
-	defer ctx.Destroy()
+	x := nvTasks(tasks)
 
 	// Allocate device memory
 	inputSize := int64(maxl) * 2 * int64(unsafe.Sizeof(uint32(0)))
 	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
-	setSize := int64(tasks) * int64((max + 3) / 4) * int64(unsafe.Sizeof(uint8(0)))
+	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
 
-	d_input, err = cu.MemAlloc(inputSize)
-	if err != nil {
-		fmt.Printf("Failed to allocate device memory for input: %v", err)
-	}
-	defer cu.MemFree(d_input)
+	var err error
+	/*
+		err := h.ctx.Lock()
+		defer h.ctx.Unlock()
+		if err != nil {
+			fmt.Printf("Failed to lock context: %v", err)
+			return
+		}
+	*/
+	cu.SetCurrentContext(*h.ctx)
 
-	d_result, err = cu.MemAlloc(resultSize)
-	if err != nil {
-		fmt.Printf("Failed to allocate device memory for result: %v", err)
-	}
-	defer cu.MemFree(d_result)
-
-	d_set, err = cu.MemAlloc(setSize)
-	if err != nil {
-		fmt.Printf("Failed to allocate device memory for set: %v", err)
-	}
-	defer cu.MemFree(d_set)
+	d_set = *h.set
+	d_input = *h.input
+	d_result = *h.result
+	d_fn := *h.fn
+	d_stream := *h.stream
 
 	cu.MemsetD8(d_result, 0, resultSize)
 	cu.MemsetD8(d_set, 0, setSize)
@@ -466,36 +558,21 @@ func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result
 		fmt.Printf("Failed to copy input data to device: %v", err)
 	}
 
-	// Launch the kernel
-	mod, err := cu.LoadData(kernel.PTXreduceCUDA)
-	if err != nil {
-		fmt.Printf("Failed to load module: %v", err)
-	}
-
-
-	fn, err := mod.Function("reduce")
-	if err != nil {
-		fmt.Printf("Failed to get function: %v", err)
-	}
-
-	stream, err := cu.MakeStream(cu.DefaultStream)
-
-	x := nvTasks(tasks)
-
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&d_set),
 		unsafe.Pointer(&max),
 		unsafe.Pointer(&maxl),
 		unsafe.Pointer(&d_input),
 		unsafe.Pointer(&d_result),
+		unsafe.Pointer(&h.DeadlineMs),
+		unsafe.Pointer(&tasks),
+		unsafe.Pointer(&h.iter),
 	}
 
-
-	err = fn.LaunchAndSync(x[1][0], x[1][1], x[1][2], x[0][0], x[0][1], x[0][2], 0, stream, args)
+	err = d_fn.LaunchAndSync(x[1][0], x[1][1], x[1][2], x[0][0], x[0][1], x[0][2], 0, d_stream, args)
 	if err != nil {
 		fmt.Printf("Failed to launch kernel: %v", err)
 	}
-
 
 	// Copy result from device to host
 	err = cu.MemcpyDtoH(unsafe.Pointer(&result[0]), d_result, resultSize)
@@ -506,6 +583,8 @@ func reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result
 	result0 = result[0]
 	result1 = result[1]
 
+	h.iter++
+
 	return result0, result1
 }
 
@@ -515,27 +594,27 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
 	}
-/*
-	fmt.Printf("\nCUDA version: %v\n", cu.Version())
-	devices, err := cu.NumDevices()
-	if err != nil {
-		fmt.Printf("issue found: %s\n", err.Error())
-		return
-	}
-	fmt.Printf("CUDA devices: %v\n\n", devices)
+	/*
+		fmt.Printf("\nCUDA version: %v\n", cu.Version())
+		devices, err := cu.NumDevices()
+		if err != nil {
+			fmt.Printf("issue found: %s\n", err.Error())
+			return
+		}
+		fmt.Printf("CUDA devices: %v\n\n", devices)
 
-	for d := 0; d < devices; d++ {
-		name, _ := cu.Device(d).Name()
-		cr, _ := cu.Device(d).Attribute(cu.ClockRate)
-		mem, _ := cu.Device(d).TotalMem()
-		maj, _ := cu.Device(d).Attribute(cu.ComputeCapabilityMajor)
-		min, _ := cu.Device(d).Attribute(cu.ComputeCapabilityMinor)
-		fmt.Printf("Device %d\n========\nName      :\t%q\n", d, name)
-		fmt.Printf("Clock Rate:\t%v kHz\n", cr)
-		fmt.Printf("Memory    :\t%v bytes\n", mem)
-		fmt.Printf("Compute   : \t%d.%d\n\n", maj, min)
-	}
-*/
+		for d := 0; d < devices; d++ {
+			name, _ := cu.Device(d).Name()
+			cr, _ := cu.Device(d).Attribute(cu.ClockRate)
+			mem, _ := cu.Device(d).TotalMem()
+			maj, _ := cu.Device(d).Attribute(cu.ComputeCapabilityMajor)
+			min, _ := cu.Device(d).Attribute(cu.ComputeCapabilityMinor)
+			fmt.Printf("Device %d\n========\nName      :\t%q\n", d, name)
+			fmt.Printf("Clock Rate:\t%v kHz\n", cr)
+			fmt.Printf("Memory    :\t%v bytes\n", mem)
+			fmt.Printf("Compute   : \t%d.%d\n\n", maj, min)
+		}
+	*/
 	alphabetCUDA := make([]uint32, 0, maxl*2)
 	for _, v := range alphabet[0] {
 		alphabetCUDA = append(alphabetCUDA, v)
@@ -543,20 +622,8 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 	for _, v := range alphabet[1] {
 		alphabetCUDA = append(alphabetCUDA, v)
 	}
-	mem := h.CuMemoryBytes
-	if mem == 0 {
-		// half of device by default
-		memory, err := cu.Device(0).TotalMem()
-		if err == nil {
-			mem = uint64(memory)/2
-		}
-		// raise if big problem
-		if mem < uint64((max+3)/4) {
-			mem = uint64((max+3)/4)
-		}
-	}
 
-	off[0], off[1] = reduceCUDA(int(mem/uint64((max+3)/4)), max, maxl, alphabetCUDA)
+	off[0], off[1] = h.reduceCUDA(h.cudaTasks(max), max, maxl, alphabetCUDA)
 
 	return
 }

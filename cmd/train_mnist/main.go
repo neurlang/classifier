@@ -37,9 +37,7 @@ func main() {
 	net.NewLayer(24*24, 0)
 	net.NewCombiner(majpool2d.MustNew(24, 24, 2, 2, 1, 1, 1))
 	net.NewLayer(12*12, 0)
-	net.NewCombiner(conv2d.MustNew2(12, 12, 5, 5, 1, 1))
-	net.NewLayer(8*8, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 2, 2, 4, 4, 1))
+	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
 	net.NewLayerP(1, 4, 4099) //2053
 
 	//Load(net)

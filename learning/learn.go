@@ -110,11 +110,11 @@ looop:
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
 		if maxl == 1 {
-			sol = h.reduce1(&alphabet2)
+			sol = h.Reduce1(&alphabet2)
 		} else if maxl == 2 {
-			sol = h.reduce2(&alphabet2)
+			sol = h.Reduce2(&alphabet2)
 		} else {
-			sol = h.reduce(max, maxl, &alphabet2)
+			sol = h.Reduce(max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -137,12 +137,12 @@ looop:
 			}
 			alphabet[n] = dst
 		}
-		var correct = len(alphabet[0]) + len(alphabet[1]) < 10
+		var correct = len(alphabet[0])+len(alphabet[1]) < 10
 		if correct {
-outer:
+		outer:
 			for n := uint32(0); n < 2; n++ {
 				for _, v := range alphabet[n] {
-					if v & 1 != n {
+					if v&1 != n {
 						correct = false
 						break outer
 					}
@@ -222,7 +222,7 @@ outer:
 	return h.InitialLimit, nil
 }
 
-func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) Reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -296,7 +296,7 @@ func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
 	return
 }
 
-func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) Reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -361,20 +361,20 @@ func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
 
 // we do this only once for a faster modulo
 func real_modulo_recip(y uint32) uint32 {
-	return uint32((uint64(1<<32)) / (uint64(y)))
+	return uint32((uint64(1 << 32)) / (uint64(y)))
 }
 
-//X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
+// X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
 // manually inlined in reduce
 func real_modulo(x, recip, y uint32) uint32 {
-	return uint32((uint64(uint32((x+1) * recip)) * uint64(y)) >> 32)
+	return uint32((uint64(uint32((x+1)*recip)) * uint64(y)) >> 32)
 }
 
 // where is used to kill threads when it increases
 var where byte
 var mutex sync.RWMutex
 
-func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -397,7 +397,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				} else {
 					mutex.RUnlock()
 				}
-				if maxl > 4{
+				if maxl > 4 {
 					var set = make([]byte, (max+3)/4, (max+3)/4)
 					//max_recip := real_modulo_recip(max)
 					maxl_recip := real_modulo_recip(maxl)
@@ -407,7 +407,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 
 						//println("at", v, i)
 						i = hash.Hash(v, s, max)
-						v = alphabet[j&1][uint32((uint64(((i+1) * maxl_recip)) * uint64(maxl)) >> 32)]
+						v = alphabet[j&1][uint32((uint64(((i+1)*maxl_recip))*uint64(maxl))>>32)]
 						//fmt.Println(letter)
 
 						// imodmax = i % max, but i is at worst 2*max-1

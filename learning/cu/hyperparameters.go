@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+import "github.com/neurlang/classifier/learning"
 import "gorgonia.org/cu"
 
 // SetLogger sets the output logger file where hashtron golang code programs are written
@@ -14,32 +15,9 @@ func (h *HyperParameters) SetLogger(filename string) {
 }
 
 type HyperParameters struct {
-	Threads int // number of threads for learning
+	learning.HyperParameters
 
-	Shuffle bool // whether to shuffle the set before each learning attempt
-	Seed    bool // seed prng using true rng
-
-	Printer       uint32 // print when hit conflicting solution of at least this large size
-	DeadlineMs    int    // deadline in milliseconds to throw away incomplete solution attempt
-	DeadlineRetry int    // retry from scratch after this many failed deadlines
-
-	// Factor is how hard to try to come up with a smaller solution (default: 1)
-	// Usually set equal to Subtractor
-	Factor uint32
-
-	// Subtractor is how hard to try to come up with a smaller solution (default: 1)
-	// Usually set equal to Factor
-	Subtractor uint32
-
-	InitialLimit int // initial limit of how small the solution must be to be saved to disk
-
-	DisableProgressBar bool // disable progress bar
-
-	EndWhenSolved bool // end when solved
-
-	Name string // override model name
-	EOL  []byte // override EOL string
-
+	CuCutoff        uint32 // the switchover point to cuda. Smaller problems go to cuda
 	CuMemoryBytes   uint64 // statically set memory
 	CuMemoryPortion uint16 // how many percent of gpu memory to use. 2=half, 3=third
 
@@ -51,4 +29,8 @@ type HyperParameters struct {
 	iter               uint32
 
 	l *log.Logger
+}
+
+func (h *HyperParameters) H() *learning.HyperParameters {
+	return &h.HyperParameters
 }

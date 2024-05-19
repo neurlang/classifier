@@ -3,7 +3,6 @@ package cu
 
 //import "math/bits"
 import "fmt"
-import "sync"
 import "math/rand"
 import crypto_rand "crypto/rand"
 import "time"
@@ -144,11 +143,13 @@ looop:
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
 		if maxl == 1 {
-			sol = h.reduce1(&alphabet2)
+			sol = h.Reduce1(&alphabet2)
 		} else if maxl == 2 {
-			sol = h.reduce2(&alphabet2)
-		} else {
+			sol = h.Reduce2(&alphabet2)
+		} else if maxl < h.CuCutoff {
 			sol = h.reduce(max, maxl, &alphabet2)
+		} else {
+			sol = h.Reduce(max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -255,158 +256,6 @@ looop:
 	}
 	return h.InitialLimit, nil
 }
-
-func (h *HyperParameters) reduce2(alphabet *[2][]uint32) (off [2]uint32) {
-	var out [2]uint32
-	mutex.Lock()
-	where++
-	mutex.Unlock()
-	for t := 1; t < h.Threads; t++ {
-		go func(tt byte) {
-			mutex.RLock()
-			var my_where = where
-			mutex.RUnlock()
-		outer:
-			for s := uint32(tt); true; s += uint32(h.Threads) {
-				mutex.RLock()
-				if my_where != where || out[0] != 0 || out[1] != 0 {
-					mutex.RUnlock()
-					return
-				} else {
-					mutex.RUnlock()
-				}
-				h00 := hash.Hash(alphabet[0][0], s, 2)
-				h01 := hash.Hash(alphabet[0][1], s, 2)
-				h10 := hash.Hash(alphabet[1][0], s, 2)
-				h11 := hash.Hash(alphabet[1][1], s, 2)
-
-				if h00 == h10 || h00 == h11 {
-					continue outer
-				}
-				if h01 == h10 || h01 == h11 {
-					continue outer
-				}
-				if h00 != h01 {
-					continue outer
-				}
-				if h10 != h11 {
-					continue outer
-				}
-				mutex.Lock()
-				if h.DisableProgressBar {
-					println("Size: ", "2", "Modulo:", "2")
-				}
-				//println("{", s, ",", max, "}, // ", len(set0))
-				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
-					out[0] = s
-					out[1] = 2
-				}
-				mutex.Unlock()
-				return
-			}
-		}(byte(t))
-	}
-	mutex.RLock()
-	var deadline = h.DeadlineMs
-	for out[0] == 0 && out[1] == 0 && deadline > 0 {
-		mutex.RUnlock()
-		time.Sleep(time.Millisecond)
-		deadline--
-		mutex.RLock()
-	}
-	off = out
-	mutex.RUnlock()
-	if deadline == 0 {
-		mutex.Lock()
-		out[0] = ^uint32(0)
-		out[1] = ^uint32(0)
-		where++
-		mutex.Unlock()
-		if h.DisableProgressBar {
-			println("Deadline 2")
-		}
-	}
-
-	return
-}
-
-func (h *HyperParameters) reduce1(alphabet *[2][]uint32) (off [2]uint32) {
-	var out [2]uint32
-	mutex.Lock()
-	where++
-	mutex.Unlock()
-	for t := 1; t < h.Threads; t++ {
-		go func(tt byte) {
-			mutex.RLock()
-			var my_where = where
-			mutex.RUnlock()
-		outer:
-			for s := uint32(tt); true; s += uint32(h.Threads) {
-				mutex.RLock()
-				if my_where != where || out[0] != 0 || out[1] != 0 {
-					mutex.RUnlock()
-					return
-				} else {
-					mutex.RUnlock()
-				}
-				if hash.Hash(alphabet[0][0], s, 2)&1 != 0 {
-					continue outer
-				}
-				if hash.Hash(alphabet[1][0], s, 2)&1 != 1 {
-					continue outer
-				}
-				mutex.Lock()
-				if h.DisableProgressBar {
-					println("Size: ", "1", "Modulo:", "2")
-				}
-				//println("{", s, ",", max, "}, // ", len(set0))
-				if out[1] > 2 || (out[1] == 0 && out[0] == 0) {
-					out[0] = s
-					out[1] = 2
-				}
-				mutex.Unlock()
-				return
-			}
-		}(byte(t))
-	}
-	mutex.RLock()
-	var deadline = h.DeadlineMs
-	for out[0] == 0 && out[1] == 0 && deadline > 0 {
-		mutex.RUnlock()
-		time.Sleep(time.Millisecond)
-		deadline--
-		mutex.RLock()
-	}
-	off = out
-	mutex.RUnlock()
-	if deadline == 0 {
-		mutex.Lock()
-		out[0] = ^uint32(0)
-		out[1] = ^uint32(0)
-		where++
-		mutex.Unlock()
-		if h.DisableProgressBar {
-			println("Deadline 1")
-		}
-	}
-
-	return
-}
-
-// we do this only once for a faster modulo
-func real_modulo_recip(y uint32) uint32 {
-	return uint32((uint64(1 << 32)) / (uint64(y)))
-}
-
-// X % Y = (BITAND(CEILING(X*256/Y),255)*Y)>>8
-// manually inlined in reduce
-func real_modulo(x, recip, y uint32) uint32 {
-	return uint32((uint64(uint32((x+1)*recip)) * uint64(y)) >> 32)
-}
-
-// where is used to kill threads when it increases
-var where byte
-var mutex sync.RWMutex
 
 func nvTasks(tasks int) [2][3]int {
 	const (

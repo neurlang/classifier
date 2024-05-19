@@ -32,13 +32,11 @@ func main() {
 	//net.NewLayer(54*54, 0)
 	//net.NewCombiner(majpool2d.MustNew(54, 54, 2, 2, 1, 1, 1))
 
-	net.NewLayerP(27*27, 0, 4099) //2053
-	net.NewCombiner(conv2d.MustNew2(27, 27, 4, 4, 1, 1))
-	net.NewLayer(24*24, 0)
-	net.NewCombiner(majpool2d.MustNew(24, 24, 2, 2, 1, 1, 1))
-	net.NewLayer(12*12, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
-	net.NewLayerP(1, 4, 4099) //2053
+	net.NewLayerP(27*27, 0, 8209) //2053
+	net.NewCombiner(conv2d.MustNew2(27, 27, 12, 12, 1, 31))
+	net.NewLayer(16*16, 0)
+	net.NewCombiner(majpool2d.MustNew(4, 4, 4, 4, 4, 4, 1))
+	net.NewLayerP(1, 4, 8209) //2053
 
 	//Load(net)
 
@@ -90,6 +88,8 @@ func main() {
 		// save any solution to disk
 		h.InitialLimit = 1000 + 4*tally.Len()
 		h.EndWhenSolved = true
+
+		//h.CuCutoff = 350
 
 		h.Name = fmt.Sprint(worst)
 		h.SetLogger("solutions14.txt")

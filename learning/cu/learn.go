@@ -123,12 +123,19 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var maxmax uint32 = max
 	const progressBarWidth = 40
 
-	defer h.destroyCUDA()
-	if h.initCUDA(max, maxl, h.cudaTasks(max)) != nil {
-		h.backoff++
-		time.Sleep(time.Duration(h.backoff) * time.Millisecond)
-		h.backoff <<= 1
-		return h.InitialLimit, nil
+	var cudaInited bool
+	needCuda := func() byte {
+		if cudaInited {
+			return 0
+		}
+		cudaInited = true
+		if h.initCUDA(max, maxl, h.cudaTasks(max)) != nil {
+			h.backoff++
+			time.Sleep(time.Duration(h.backoff) * time.Millisecond)
+			h.backoff <<= 1
+			return 1
+		}
+		return 2
 	}
 
 looop:
@@ -147,6 +154,12 @@ looop:
 		} else if maxl == 2 {
 			sol = h.Reduce2(&alphabet2)
 		} else if maxl < h.CuCutoff {
+			switch needCuda() {
+			case 1:
+				return h.InitialLimit, nil
+			case 2:
+				defer h.destroyCUDA()
+			}
 			sol = h.reduce(max, maxl, &alphabet2)
 		} else {
 			sol = h.Reduce(max, maxl, &alphabet2)

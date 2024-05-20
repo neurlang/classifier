@@ -14,7 +14,7 @@ import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/learning/cu/kernel"
 
 import "gorgonia.org/cu"
-
+import "runtime"
 import "unsafe"
 
 type modulo_t = uint32
@@ -394,16 +394,21 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
 	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
 
-	var err error
-	/*
-		err := h.ctx.Lock()
-		defer h.ctx.Unlock()
-		if err != nil {
-			fmt.Printf("Failed to lock context: %v", err)
-			return
-		}
-	*/
-	cu.SetCurrentContext(*h.ctx)
+	runtime.LockOSThread()
+
+	// Lock context for thread safety
+	err := h.ctx.Lock()
+	if err != nil {
+		fmt.Printf("Failed to lock context: %v", err)
+		return
+	}
+	defer h.ctx.Unlock()
+
+	err = cu.SetCurrentContext(*h.ctx)
+	if err != nil {
+		fmt.Printf("Failed to set current context: %v", err)
+		return
+	}
 
 	d_set = *h.set
 	d_input = *h.input
@@ -411,13 +416,22 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 	d_fn := *h.fn
 	d_stream := *h.stream
 
-	cu.MemsetD8(d_result, 0, resultSize)
-	cu.MemsetD8(d_set, 0, setSize)
+	err = cu.MemsetD8(d_result, 0, resultSize)
+	if err != nil {
+		fmt.Printf("Failed to set device memory for result: %v", err)
+		return
+	}
+	err = cu.MemsetD8(d_set, 0, setSize)
+	if err != nil {
+		fmt.Printf("Failed to set device memory for set: %v", err)
+		return
+	}
 
 	// Copy data from host to device
 	err = cu.MemcpyHtoD(d_input, unsafe.Pointer(&alphabet[0]), inputSize)
 	if err != nil {
 		fmt.Printf("Failed to copy input data to device: %v", err)
+		return
 	}
 
 	args := []unsafe.Pointer{
@@ -434,12 +448,14 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 	err = d_fn.LaunchAndSync(x[1][0], x[1][1], x[1][2], x[0][0], x[0][1], x[0][2], 0, d_stream, args)
 	if err != nil {
 		fmt.Printf("Failed to launch kernel: %v", err)
+		return
 	}
 
 	// Copy result from device to host
 	err = cu.MemcpyDtoH(unsafe.Pointer(&result[0]), d_result, resultSize)
 	if err != nil {
 		fmt.Printf("Failed to copy result data from device: %v", err)
+		return
 	}
 
 	result0 = result[0]

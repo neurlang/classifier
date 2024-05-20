@@ -70,7 +70,7 @@ func (h *HyperParameters) cudaTasks(max uint32) int {
 	mem := h.CuMemoryBytes
 	if mem == 0 {
 		memory, err := cu.Device(0).TotalMem()
-		if err == nil {
+		if err == nil && memory > 0 {
 			portion := uint64(h.CuMemoryPortion)
 			if portion == 0 {
 				// 1/384 of device by default
@@ -81,6 +81,10 @@ func (h *HyperParameters) cudaTasks(max uint32) int {
 		// raise if big problem
 		if mem < uint64(((max+3)/4)+4) {
 			mem = uint64(((max + 3) / 4) + 4)
+		}
+		// cap by avail memory
+		if mem > uint64(memory) {
+			mem = uint64(memory)
 		}
 	}
 	return int(mem / uint64(((max+3)/4)+4))
@@ -129,7 +133,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 			return 0
 		}
 		cudaInited = true
-		if h.initCUDA(max, maxl, h.cudaTasks(max)) != nil {
+		if h.initCUDA(max, maxl) != nil {
 			h.backoff++
 			time.Sleep(time.Duration(h.backoff) * time.Millisecond)
 			h.backoff <<= 1
@@ -212,6 +216,7 @@ looop:
 		sols = append(sols, sol)
 
 		maxl = modulo_t(len(alphabet[0]))
+		maxmax = max
 
 		if correct || maxl < 2 {
 			if len(d) == 2 {
@@ -304,7 +309,7 @@ func nvTasks(tasks int) [2][3]int {
 	return [2][3]int{{32, 32, 1}, {numBlocksX, numBlocksY, numBlocksZ}}
 }
 
-func (h *HyperParameters) initCUDA(max, maxl uint32, tasks int) error {
+func (h *HyperParameters) initCUDA(max, maxl uint32) error {
 
 	// Initialize CUDA
 	device, err := cu.GetDevice(0)
@@ -318,12 +323,6 @@ func (h *HyperParameters) initCUDA(max, maxl uint32, tasks int) error {
 		return err
 	}
 	cu.SetCurrentContext(ctx)
-	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
-	d_set, err := cu.MemAlloc(setSize)
-	if err != nil {
-		fmt.Printf("Failed to allocate device memory for set: %v", err)
-		return err
-	}
 	inputSize := int64(maxl) * 2 * int64(unsafe.Sizeof(uint32(0)))
 	d_input, err := cu.MemAlloc(inputSize)
 	if err != nil {
@@ -351,7 +350,6 @@ func (h *HyperParameters) initCUDA(max, maxl uint32, tasks int) error {
 
 	stream, err := cu.MakeStream(cu.DefaultStream)
 	h.ctx = &ctx
-	h.set = &d_set
 	h.input = &d_input
 	h.result = &d_result
 	h.fn = &fn
@@ -361,10 +359,6 @@ func (h *HyperParameters) initCUDA(max, maxl uint32, tasks int) error {
 func (h *HyperParameters) destroyCUDA() {
 	h.fn = nil
 	h.stream = nil
-	if h.set != nil {
-		cu.MemFree(*h.set)
-		h.set = nil
-	}
 	if h.input != nil {
 		cu.MemFree(*h.input)
 		h.input = nil
@@ -372,6 +366,11 @@ func (h *HyperParameters) destroyCUDA() {
 	if h.result != nil {
 		cu.MemFree(*h.result)
 		h.result = nil
+	}
+	if h.set != nil {
+		cu.MemFree(*h.set)
+		h.set = nil
+		h.setSize = 0
 	}
 	if h.ctx != nil {
 		h.ctx.Destroy()
@@ -410,23 +409,50 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 		return
 	}
 
-	d_set = *h.set
 	d_input = *h.input
 	d_result = *h.result
 	d_fn := *h.fn
 	d_stream := *h.stream
 
+	if h.set != nil {
+		d_set = *h.set
+		if h.setSize > 2*setSize || h.setSize < setSize {
+			err = cu.MemFree(d_set)
+			if err != nil {
+				fmt.Printf("Failed to free set: %v", err)
+				return
+			}
+			println(setSize)
+			d_set, err = cu.MemAlloc(setSize)
+			if err != nil {
+				fmt.Printf("Failed to allocate device memory for set: %v", err)
+				return
+			}
+		}
+	} else {
+		println(setSize)
+		d_set, err = cu.MemAlloc(setSize)
+		if err != nil {
+			fmt.Printf("Failed to initially allocate device memory for set: %v", err)
+			return
+		}
+	}
+
+
+	h.setSize = setSize
+	h.set = &d_set
 	err = cu.MemsetD8(d_result, 0, resultSize)
 	if err != nil {
 		fmt.Printf("Failed to set device memory for result: %v", err)
 		return
 	}
-	err = cu.MemsetD8(d_set, 0, setSize)
-	if err != nil {
-		fmt.Printf("Failed to set device memory for set: %v", err)
-		return
+	if h.CuErase {
+		err = cu.MemsetD8(d_set, 0, setSize)
+		if err != nil {
+			fmt.Printf("Failed to set device memory for set: %v", err)
+			return
+		}
 	}
-
 	// Copy data from host to device
 	err = cu.MemcpyHtoD(d_input, unsafe.Pointer(&alphabet[0]), inputSize)
 	if err != nil {
@@ -451,6 +477,8 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 		return
 	}
 
+	h.iter++
+
 	// Copy result from device to host
 	err = cu.MemcpyDtoH(unsafe.Pointer(&result[0]), d_result, resultSize)
 	if err != nil {
@@ -458,10 +486,12 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 		return
 	}
 
+
+
 	result0 = result[0]
 	result1 = result[1]
 
-	h.iter++
+
 
 	return result0, result1
 }

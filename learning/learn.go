@@ -164,6 +164,7 @@ looop:
 		sols = append(sols, sol)
 
 		maxl = modulo_t(len(alphabet[0]))
+		maxmax = max
 
 		if correct || maxl < 2 {
 			if len(d) == 2 {

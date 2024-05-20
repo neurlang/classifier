@@ -20,6 +20,8 @@ type HyperParameters struct {
 	CuCutoff        uint32 // the switchover point to cuda. Smaller problems go to cuda
 	CuMemoryBytes   uint64 // statically set memory
 	CuMemoryPortion uint16 // how many percent of gpu memory to use. 2=half, 3=third
+	CuErase         bool // pre-erase memory set
+
 
 	ctx                *cu.CUContext
 	set, input, result *cu.DevicePtr
@@ -27,6 +29,8 @@ type HyperParameters struct {
 	stream             *cu.Stream
 	backoff            uint64
 	iter               uint32
+	setSize		   int64
+
 
 	l *log.Logger
 }

@@ -422,25 +422,26 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 				fmt.Printf("Failed to free set: %v", err)
 				return
 			}
-			println(setSize)
 			d_set, err = cu.MemAlloc(setSize)
 			if err != nil {
 				fmt.Printf("Failed to allocate device memory for set: %v", err)
 				return
 			}
+			h.setSize = setSize
+			h.set = &d_set
 		}
 	} else {
-		println(setSize)
 		d_set, err = cu.MemAlloc(setSize)
 		if err != nil {
 			fmt.Printf("Failed to initially allocate device memory for set: %v", err)
 			return
 		}
+		h.setSize = setSize
+		h.set = &d_set
 	}
 
 
-	h.setSize = setSize
-	h.set = &d_set
+
 	err = cu.MemsetD8(d_result, 0, resultSize)
 	if err != nil {
 		fmt.Printf("Failed to set device memory for result: %v", err)

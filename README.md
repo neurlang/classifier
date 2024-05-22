@@ -131,7 +131,7 @@ And you can do inference:
 
 ## Compatibility
 
-Works starting with golang 1.13
+Works starting with golang 1.13 / golang 1.16 + cu dependency for CUDA learning
 
 ## License
 

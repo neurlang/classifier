@@ -40,7 +40,13 @@ __device__ uint32_t real_modulo(uint32_t x, uint32_t recip, uint32_t y) {
 __device__ static int exitFlag = 0;
 
 
-extern "C" __global__ void reduce(uint8_t *d_set, uint32_t max, uint32_t maxl, uint32_t *alphabet, uint32_t* out, uint32_t timeMs, uint32_t tasks, uint32_t iteration) {
+extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *alphabet, uint32_t* out) {
+	uint32_t max = d_nums[0];
+	uint32_t maxl = d_nums[1];
+	uint32_t timeMs = d_nums[2];
+	uint32_t tasks = d_nums[3];
+	uint32_t iteration = d_nums[4];
+
 	int myFlag = iteration;
 	uint64_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint64_t tid_y = blockIdx.y * blockDim.y + threadIdx.y;

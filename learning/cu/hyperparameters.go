@@ -25,6 +25,7 @@ type HyperParameters struct {
 
 	ctx                *cu.CUContext
 	set, input, result *cu.DevicePtr
+	inputNums          *cu.DevicePtr
 	fn, fn1, fn2       *cu.Function
 	stream             *cu.Stream
 	backoff            uint64

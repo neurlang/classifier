@@ -91,7 +91,8 @@ func (t *Tally) AddToMapAll(feature uint16, output uint64, loss func(n uint32) u
 	}
 	if !t.isFinalization {
 		for i := uint32(0); i < max; i++ {
-			t.mapping[feature][uint64(i)] += uint64(max) - uint64(loss(i))
+			err := uint64(loss(i))
+			t.mapping[feature][uint64(i)] += err * err
 		}
 	} else {
 		t.mapping[feature][output] ++
@@ -117,9 +118,15 @@ func (t *Tally) Split() SplittedDataset {
 		for k, freq := range t.mapping {
 			var maxk uint64
 			for k2 := range freq {
-				if freq[k2] > freq[maxk] {
-					maxk = k2
-				} 
+				if t.isFinalization {
+					if freq[k2] < freq[maxk] {
+						maxk = k2
+					}
+				} else {
+					if freq[k2] > freq[maxk] {
+						maxk = k2
+					}
+				}
 			}
 			mapp[k] = maxk
 		}

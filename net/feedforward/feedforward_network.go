@@ -266,7 +266,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		for neg := 0; neg < 2; neg++ {
 			if !less(predicted[neg], output) && !less(output, predicted[neg]) {
 
-				tally.AddToCorrect(ifw, compute[neg])
+				tally.AddToCorrect(ifw, compute[neg], neg == 1)
 				// shift to correct output
 
 				return
@@ -297,6 +297,6 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
-		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1) - 1)
+		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1) - 1, true)
 	}
 }

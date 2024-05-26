@@ -98,6 +98,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
+	var center uint32
 looop:
 	for max <= maxmax {
 		if !h.DisableProgressBar {
@@ -114,7 +115,7 @@ looop:
 		} else if maxl == 2 {
 			sol = h.Reduce2(&alphabet2)
 		} else {
-			sol = h.Reduce(max, maxl, &alphabet2)
+			sol = h.Reduce(center, max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -162,7 +163,7 @@ looop:
 		set = nil
 
 		sols = append(sols, sol)
-
+		center = sol[0]
 		maxl = modulo_t(len(alphabet[0]))
 		maxmax = max
 
@@ -375,7 +376,7 @@ func real_modulo(x, recip, y uint32) uint32 {
 var where byte
 var mutex sync.RWMutex
 
-func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -407,7 +408,7 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 					for j := uint32(0); j < 2*uint32(maxl); j++ {
 
 						//println("at", v, i)
-						i = hash.Hash(v, s, max)
+						i = hash.Hash(v, center^s, max)
 						v = alphabet[j&1][uint32((uint64(((i+1)*maxl_recip))*uint64(maxl))>>32)]
 						//fmt.Println(letter)
 
@@ -438,10 +439,10 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				// cubic verify
 				//var int0, int1 uint64
 				for i := uint32(0); i < maxl; i++ {
-					var v = hash.Hash(alphabet[0][i], s, max)
+					var v = hash.Hash(alphabet[0][i], center^s, max)
 					//int0 |= 1 << v
 					for j := uint32(0); j < maxl; j++ {
-						var w = hash.Hash(alphabet[1][j], s, max)
+						var w = hash.Hash(alphabet[1][j], center^s, max)
 						if v == w {
 							continue outer
 						}
@@ -467,7 +468,7 @@ func (h *HyperParameters) Reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
-					out[0] = s
+					out[0] = center^s
 					out[1] = uint32(max)
 				}
 				mutex.Unlock()

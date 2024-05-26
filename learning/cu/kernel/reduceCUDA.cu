@@ -46,6 +46,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 	uint32_t timeMs = d_nums[2];
 	uint32_t tasks = d_nums[3];
 	uint32_t iteration = d_nums[4];
+	uint32_t center = d_nums[5];
 
 	int myFlag = iteration;
 	uint64_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -77,7 +78,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 			uint32_t i = 0;
 			uint32_t v = alphabet[i];
 			for (uint32_t j = 0; j < 2 * maxl; j++) {
-				i = hash(v, s, max);
+				i = hash(v, center^s, max);
 				v = alphabet[(j & 1) * maxl + uint32_t(((uint64_t)((i + 1) * maxl_recip) * uint64_t(maxl)) >> 32)];
 
 				uint32_t imodmax = i;
@@ -94,9 +95,9 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 			//__syncthreads();
 		}
 		for (uint32_t i = 0; i < maxl; i++) {
-			uint32_t v = hash(alphabet[i], s, max);
+			uint32_t v = hash(alphabet[i], center^s, max);
 			for (uint32_t j = 0; j < maxl; j++) {
-				uint32_t w = hash(alphabet[maxl+j], s, max);
+				uint32_t w = hash(alphabet[maxl+j], center^s, max);
 					if (v == w) {
 						goto next_iteration;
 				}
@@ -107,7 +108,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 		}
 		//__syncthreads();
 		// Atomic operations to update output
-		out[0] = s;
+		out[0] = center^s;
 		out[1] = max;
 		atomicExch(&exitFlag, myFlag+1);
 		//__syncthreads();

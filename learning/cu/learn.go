@@ -125,7 +125,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	var max uint32 = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
 	var maxmax uint32 = max
 	const progressBarWidth = 40
-
+	var center uint32
 	var cudaInited bool
 	needCuda := func() byte {
 		if cudaInited {
@@ -163,9 +163,9 @@ looop:
 			case 2:
 				defer h.destroyCUDA()
 			}
-			sol = h.reduce(max, maxl, &alphabet2)
+			sol = h.reduce(center, max, maxl, &alphabet2)
 		} else {
-			sol = h.Reduce(max, maxl, &alphabet2)
+			sol = h.Reduce(center, max, maxl, &alphabet2)
 		}
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
@@ -213,7 +213,7 @@ looop:
 		set = nil
 
 		sols = append(sols, sol)
-
+		center = sol[0]
 		maxl = modulo_t(len(alphabet[0]))
 		maxmax = max
 
@@ -333,7 +333,7 @@ func (h *HyperParameters) initCUDA(max, maxl uint32) error {
 		fmt.Printf("Failed to allocate device memory for input: %v\n", err)
 		return err
 	}
-	inputsSize := 5 * int64(unsafe.Sizeof(uint32(0)))
+	inputsSize := 6 * int64(unsafe.Sizeof(uint32(0)))
 	d_input_nums, err := cu.MemAlloc(inputsSize)
 	if err != nil {
 		fmt.Printf("Failed to allocate device memory for inputs: %v\n", err)
@@ -398,7 +398,7 @@ func (h *HyperParameters) destroyCUDA() {
 	}
 }
 
-func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
+func (h *HyperParameters) reduceCUDA(tasks int, center, max, maxl uint32, alphabet []uint32) (result0, result1 uint32) {
 	var (
 		d_input  cu.DevicePtr
 		d_result cu.DevicePtr
@@ -410,7 +410,7 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 
 	// Allocate device memory
 	inputSize := int64(maxl) * 2 * int64(unsafe.Sizeof(uint32(0)))
-	inputNumsSize := 5 * int64(unsafe.Sizeof(uint32(0)))
+	inputNumsSize := 6 * int64(unsafe.Sizeof(uint32(0)))
 	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
 	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
 
@@ -474,7 +474,7 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 		return
 	}
 
-	var input_numbers = [5]uint32{max, maxl, uint32(h.DeadlineMs), uint32(tasks), h.iter}
+	var input_numbers = [6]uint32{max, maxl, uint32(h.DeadlineMs), uint32(tasks), h.iter, center}
 
 	err = cu.MemcpyHtoD(d_input_nums, unsafe.Pointer(&input_numbers[0]), inputNumsSize)
 	if err != nil {
@@ -514,7 +514,7 @@ func (h *HyperParameters) reduceCUDA(tasks int, max, maxl uint32, alphabet []uin
 	return result0, result1
 }
 
-func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+func (h *HyperParameters) reduce(center, max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 
 	if h.Shuffle {
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
@@ -549,7 +549,7 @@ func (h *HyperParameters) reduce(max uint32, maxl modulo_t, alphabet *[2][]uint3
 		alphabetCUDA = append(alphabetCUDA, v)
 	}
 
-	off[0], off[1] = h.reduceCUDA(h.cudaTasks(max), max, maxl, alphabetCUDA)
+	off[0], off[1] = h.reduceCUDA(h.cudaTasks(max), center, max, maxl, alphabetCUDA)
 
 	return
 }

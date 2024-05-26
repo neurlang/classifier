@@ -23,6 +23,9 @@ type Tally struct {
 
 	// isFinalization reports whether we are in the finalization stage
 	isFinalization bool
+
+	// improvementPossible reports whether an improvement is possible
+	improvementPossible bool
 }
 
 // Init initializes the tally dataset structure
@@ -43,6 +46,10 @@ func (t *Tally) SetFinalization(final bool) {
 	t.isFinalization = final
 }
 
+// GetImprovementPossible reads improvementPossible
+func (t *Tally) GetImprovementPossible() bool {
+	return t.improvementPossible
+}
 // Len estimates the size of tally
 func (t *Tally) Len() (o int) {
 	t.mut.Lock()
@@ -71,7 +78,7 @@ func (t *Tally) AddToImprove(feature uint32, vote int8) {
 }
 
 // Correct votes for feature which caused the overall result to be correct
-func (t *Tally) AddToCorrect(feature uint32, vote int8) {
+func (t *Tally) AddToCorrect(feature uint32, vote int8, improvement bool) {
 	if vote == 0 {
 		return
 	}
@@ -79,6 +86,9 @@ func (t *Tally) AddToCorrect(feature uint32, vote int8) {
 	t.correct[feature] += int64(vote)
 	if t.correct[feature] == 0 {
 		delete(t.correct, feature)
+	}
+	if improvement {
+		t.improvementPossible = true
 	}
 	t.mut.Unlock()
 }
@@ -97,6 +107,7 @@ func (t *Tally) AddToMapAll(feature uint16, output uint64, loss func(n uint32) u
 	} else {
 		t.mapping[feature][output] ++
 	}
+	t.improvementPossible = true
 	t.mut.Unlock()
 }
 
@@ -107,6 +118,7 @@ func (t *Tally) AddToMapping(feature uint16, output uint64) {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
 	t.mapping[feature][output] ++
+	t.improvementPossible = true
 	t.mut.Unlock()
 }
 

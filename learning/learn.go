@@ -385,7 +385,7 @@ func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
 	}
-	for t := 1; t < h.Threads; t++ {
+	for t := 0; t < h.Threads; t++ {
 		go func(tt byte) {
 			mutex.RLock()
 			var my_where = where

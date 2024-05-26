@@ -32,20 +32,20 @@ func main() {
 	//net.NewLayer(54*54, 0)
 	//net.NewCombiner(majpool2d.MustNew(54, 54, 2, 2, 1, 1, 1))
 
-	net.NewLayerP(27*27, 0, 8209) //2053
-	net.NewCombiner(conv2d.MustNew2(27, 27, 12, 12, 1, 31))
-	net.NewLayer(16*16, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 4, 4, 4, 4, 1))
-	net.NewLayerP(1, 4, 8209) //2053
+	net.NewLayer(27*27, 0) //2053
+	net.NewCombiner(conv2d.MustNew2(27, 27, 16, 16, 1, 4))
+	net.NewLayer(12*12, 0)
+	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
+	net.NewLayerP(1, 4, 2053) //2053
 
 	//Load(net)
 
 	trainWorst := func(worst int) {
 		var tally = new(datasets.Tally)
 		tally.Init()
-		//tally.SetFinalization(false)
+		tally.SetFinalization(true)
 
-		const group = 500
+		const group = 1000
 		for j := 0; j < len(mnist.InferLabels); j+=group {
 			wg := sync.WaitGroup{}
 			for jj := 0; jj < group && jj + j < len(mnist.InferLabels); jj++ {
@@ -65,7 +65,9 @@ func main() {
 			wg.Wait()
 		}
 
-
+		if !tally.GetImprovementPossible() {
+			return
+		}
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -89,10 +91,13 @@ func main() {
 		h.InitialLimit = 1000 + 4*tally.Len()
 		h.EndWhenSolved = true
 
-		//h.CuCutoff = 350
+		//h.CuErase = true
+		//h.CuCutoff = 400
+		//h.CuMemoryPortion = 100
+		//h.CuMemoryBytes = 1000000000
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions14.txt")
+		h.SetLogger("solutions19.txt")
 
 		fmt.Println(worst, tally.Len())
 
@@ -128,11 +133,17 @@ func main() {
 		}
 		println(quality[0], errsum[0], quality[1], errsum[1])
 	}
-
+	//trainWorst(985)
 	for {
 		evaluate()
+		shuf := net.Shuffle(true)
 		for worst := 0; worst < net.Len(); worst++ {
-			trainWorst(worst)
+			println("training", worst)
+			trainWorst(shuf[worst])
+			if worst == 0 {
+				evaluate()
+			}
 		}
+		net.SetLayersP(0)
 	}
 }

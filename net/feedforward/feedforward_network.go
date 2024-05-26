@@ -125,6 +125,12 @@ func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
 	f.premodulo = append(f.premodulo, premodulo)
 }
 
+// SetLayersP sets an input feature pre-modulo to layers.
+func (f *FeedforwardNetwork) SetLayersP(premodulo uint32) {
+	for n := range f.premodulo {
+		f.premodulo[n] = premodulo
+	}
+}
 
 // NewCombiner adds a combiner layer to the end of network
 func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {

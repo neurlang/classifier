@@ -10,6 +10,11 @@
   * A MNIST handwritten digits demo is currently provided
   * The larger models don't need to be fully connected, reducing the need for large scale matrix multiplication.
 
+# NEW: AI Antivirus demo and dataset
+
+It was figured out that this model is successful for virus classification based on TLSH hashes.
+The success rate we archieved was 94% on the training set. We are currently trying to improve this result further.
+
 ## Usage - Training
 
 1. Clone the repo

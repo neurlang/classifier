@@ -39,10 +39,11 @@ func (s *MajPool2D) Feature(m int) (o uint32) {
 	supermatrix := s.width * s.height
 	submatrix := s.subwidth * s.subheight
 	residualwidth := (s.width - s.capwidth + 1)
+	residualwidthh := s.width
 	matrix := supermatrix * submatrix
 	base := (m / matrix) * matrix
-	starty := m / residualwidth
-	startx := m % residualwidth
+	starty := m / residualwidthh
+	startx := (m % residualwidthh) % residualwidth
 	for y := 0; y < s.capheight; y++ {
 		for x := 0; x < s.capwidth; x++ {
 			var w int

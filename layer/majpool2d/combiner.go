@@ -30,7 +30,7 @@ func (s *MajPool2D) Disregard(n int) bool {
 			w1--
 		}
 	}
-	cond1 := (w0 > 0) == (w1 > 0)
+	cond1 := (w0 > s.bias) == (w1 > s.bias)
 	return cond1
 }
 
@@ -38,24 +38,24 @@ func (s *MajPool2D) Disregard(n int) bool {
 func (s *MajPool2D) Feature(m int) (o uint32) {
 	supermatrix := s.width * s.height
 	submatrix := s.subwidth * s.subheight
-	residualwidth := (s.width - s.capwidth + 1)
-	residualwidthh := s.width
 	matrix := supermatrix * submatrix
 	base := (m / matrix) * matrix
-	starty := m / residualwidthh
-	startx := (m % residualwidthh) % residualwidth
+	starty := m / s.width
+	startx := m % s.width
 	for y := 0; y < s.capheight; y++ {
 		for x := 0; x < s.capwidth; x++ {
+			xx := (x + startx) % s.width
+			yy := (y + starty) % s.height
 			var w int
 			for m := 0; m < submatrix; m++ {
-				if (s.vec)[base+submatrix*(s.width*(y+starty)+(x+startx))+m] {
+				if (s.vec)[base+submatrix*(s.width*yy+xx)+m] {
 					w++
 				} else {
 					w--
 				}
 			}
 			o <<= 1
-			if w > 0 {
+			if w > s.bias {
 				o |= 1
 			}
 		}

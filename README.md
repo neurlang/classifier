@@ -13,7 +13,7 @@
 # NEW: AI Antivirus demo and dataset
 
 It was figured out that this model is successful for virus classification based on TLSH hashes.
-The success rate we archieved was 96% on the training set. We are currently trying to improve this result further.
+The success rate we archieved was 97% on the training set. We are currently trying to improve this result further.
 
 ## Usage - Training
 

@@ -22,7 +22,7 @@ func init() {
 }
 
 func main() {
-	const fanout = 10
+	const fanout = 13
 	var net feedforward.FeedforwardNetwork
 	//net.NewLayer(fanout*fanout*fanout*fanout, 0)
 	//net.NewCombiner(majpool2d.MustNew(fanout*fanout, 1, fanout*fanout, 1, 1, 1, 1))

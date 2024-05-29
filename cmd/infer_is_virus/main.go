@@ -38,12 +38,14 @@ func download_and_get_model(num int, hash, url string) (net feedforward.Feedforw
 	switch num {
 	case 0, 1:
 		const fanout = 10
-		//net.NewLayer(fanout*fanout*fanout*fanout, 0)
-		//net.NewCombiner(majpool2d.MustNew(fanout*fanout, 1, fanout*fanout, 1, 1, 1, 1))
 		net.NewLayer(fanout*fanout, 0)
 		net.NewCombiner(majpool2d.MustNew(fanout, 1, fanout, 1, fanout, 1, 1))
 		net.NewLayer(1, 0)
-
+	case 2, 3:
+		const fanout = 13
+		net.NewLayer(fanout*fanout, 0)
+		net.NewCombiner(majpool2d.MustNew(fanout, 1, fanout, 1, fanout, 1, 1))
+		net.NewLayer(1, 0)
 	}
 
 	// download
@@ -117,13 +119,23 @@ func main() {
 	var models = [][3]string{
 		{
 			"0ae3a23ae50e935f3fab464ffc38a021813c6f34f096ddea176ee8716eda030f",
-			"[v0.0.4] - Initial - Mirror quantum-computing.cz",
+			"[v0.0.4] - Initial (96%) - Mirror quantum-computing.cz",
 			"https://quantum-computing.cz/neurlang_initial_v0_0_4_weights.json.gz",
 		},
 		{
 			"0ae3a23ae50e935f3fab464ffc38a021813c6f34f096ddea176ee8716eda030f",
-			"[v0.0.4] - Initial - Mirror quantum-computing.sk",
+			"[v0.0.4] - Initial (96%) - Mirror quantum-computing.sk",
 			"https://quantum-computing.sk/neurlang_initial_v0_0_4_weights.json.gz",
+		},
+		{
+			"6ac88bc3535848cf88d5f1f07913107987e696ac11e4f911ec4a59f2a4df27a3",
+			"[v0.0.5] - Improved (97%) - Mirror quantum-computing.cz",
+			"https://quantum-computing.cz/neurlang_improved_v0_0_5_weights.json.gz",
+		},
+		{
+			"6ac88bc3535848cf88d5f1f07913107987e696ac11e4f911ec4a59f2a4df27a3",
+			"[v0.0.5] - Improved (97%) - Mirror quantum-computing.sk",
+			"https://quantum-computing.sk/neurlang_improved_v0_0_5_weights.json.gz",
 		},
 	}
 

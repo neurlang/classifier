@@ -4,16 +4,30 @@ package majpool2d
 import "github.com/neurlang/classifier/layer"
 
 type MajPool2DLayer struct {
-	width, height, subwidth, subheight, capwidth, capheight, repeat int
+	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
 }
 
 type MajPool2D struct {
-	vec                                                             []bool
-	width, height, subwidth, subheight, capwidth, capheight, repeat int
+	vec                                                                   []bool
+	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
+}
+
+// MustNew creates a new MajPool2D layer with size, subsize and repeat
+func MustNew(width, height, subwidth, subheight, capwidth, capheight, repeat int) *MajPool2DLayer {
+	o, err := New2(width, height, subwidth, subheight, capwidth, capheight, repeat, 0)
+	if err != nil {
+		panic(err.Error())
+	}
+	return o
 }
 
 // New creates a new MajPool2D layer with size, subsize and repeat
-func New(width, height, subwidth, subheight, capwidth, capheight, repeat int) (o *MajPool2DLayer, err error) {
+func New(width, height, subwidth, subheight, capwidth, capheight, repeat, bias int) (*MajPool2DLayer, error) {
+	return New2(width, height, subwidth, subheight, capwidth, capheight, repeat, 0)
+}
+
+// New2 creates a new MajPool2D layer with size, subsize and repeat
+func New2(width, height, subwidth, subheight, capwidth, capheight, repeat, bias int) (o *MajPool2DLayer, err error) {
 	o = new(MajPool2DLayer)
 	o.width = width
 	o.height = height
@@ -22,12 +36,13 @@ func New(width, height, subwidth, subheight, capwidth, capheight, repeat int) (o
 	o.capwidth = capwidth
 	o.capheight = capheight
 	o.repeat = repeat
+	o.bias = bias
 	return
 }
 
-// MustNew creates a new MajPool2D layer with size, subsize and repeat
-func MustNew(width, height, subwidth, subheight, capwidth, capheight, repeat int) *MajPool2DLayer {
-	o, err := New(width, height, subwidth, subheight, capwidth, capheight, repeat)
+// MustNew2 creates a new MajPool2D layer with size, subsize and repeat
+func MustNew2(width, height, subwidth, subheight, capwidth, capheight, repeat, bias int) *MajPool2DLayer {
+	o, err := New2(width, height, subwidth, subheight, capwidth, capheight, repeat, bias)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -45,5 +60,6 @@ func (i *MajPool2DLayer) Lay() layer.Combiner {
 	o.capwidth = i.capwidth
 	o.capheight = i.capheight
 	o.repeat = i.repeat
+	o.bias = i.bias
 	return &o
 }

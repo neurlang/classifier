@@ -22,7 +22,7 @@ func MustNew(width, height, subwidth, subheight, capwidth, capheight, repeat int
 }
 
 // New creates a new MajPool2D layer with size, subsize and repeat
-func New(width, height, subwidth, subheight, capwidth, capheight, repeat, bias int) (*MajPool2DLayer, error) {
+func New(width, height, subwidth, subheight, capwidth, capheight, repeat int) (*MajPool2DLayer, error) {
 	return New2(width, height, subwidth, subheight, capwidth, capheight, repeat, 0)
 }
 

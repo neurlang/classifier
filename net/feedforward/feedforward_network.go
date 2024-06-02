@@ -168,7 +168,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 			go func(i int) {
 				var feat = in.Feature(i)
 				if f.premodulo[l] != 0 {
-					feat = hash.Hash(feat, 0, f.premodulo[l])
+					feat = hash.Hash(feat, uint32(i), f.premodulo[l])
 				}
 				var bit = f.layers[l][i].Forward(feat, (i == worst) && (neg == 1))
 				combiner.Put(i, bit&1 != 0)
@@ -243,7 +243,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		}
 		ifw := in.Feature(f.GetPosition(worst))
 		if f.premodulo[l] != 0 {
-			ifw = hash.Hash(ifw, 0, f.premodulo[l])
+			ifw = hash.Hash(ifw, uint32(f.GetPosition(worst)), f.premodulo[l])
 		}
 		for neg := 0; neg < 2; neg++ {
 			inter, computed := f.Forward(in, l, f.GetPosition(worst), neg)

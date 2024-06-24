@@ -23,6 +23,6 @@ func (h Hashtron) Bits() byte {
 }
 
 // SetBits sets the number of output bits returned by hashtron using Forward
-func (h Hashtron) SetBits(bits byte)  {
+func (h Hashtron) SetBits(bits byte) {
 	h.bits = bits
 }

@@ -13,7 +13,7 @@ func New(program [][2]uint32, bits byte, future ...interface{}) (h *Hashtron, er
 		bits = 1
 	}
 	if program == nil {
-		h.program = [][2]uint32{{rand.Uint32()>>1, 2}}
+		h.program = [][2]uint32{{rand.Uint32() >> 1, 2}}
 	} else {
 		h.program = program
 	}

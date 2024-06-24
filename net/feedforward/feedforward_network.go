@@ -140,7 +140,6 @@ func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.premodulo = append(f.premodulo, 0)
 }
 
-
 // IsMapLayerOf checks if hashtron n lies in the final layer of the network.
 func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 	if f.GetLayer(n) == -1 {
@@ -220,7 +219,7 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 
 		tally.AddToMapAll(ifeature, uint64(output.Feature(0)), func(n uint32) uint32 {
 			return loss(SingleValue(n))
-		}, uint32(1) << f.mapping[l])
+		}, uint32(1)<<f.mapping[l])
 	} else {
 		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)
@@ -303,6 +302,6 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
-		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1) - 1, true)
+		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, true)
 	}
 }

@@ -25,3 +25,19 @@ func Hash(n uint32, s uint32, max uint32) uint32 {
 	// https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
 	return uint32((uint64(m) * uint64(max)) >> 32)
 }
+
+func StringsHash(in uint32, strs []string) (out uint32) {
+	out = in
+	for _, str := range strs {
+		out = StringHash(out, str)
+	}
+	return
+}
+
+func StringHash(in uint32, str string) (out uint32) {
+	out = in
+	for _, v := range []rune(str) {
+		out = Hash(out, uint32(v), 0xffffffff)
+	}
+	return
+}

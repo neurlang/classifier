@@ -71,6 +71,15 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 		if err != nil {
 			return h.InitialLimit, nil
 		}
+		if h.l != nil {
+			buf, err := tron.BytesBuffer(h.Name, h.EOL...)
+			if err != nil {
+				println("Hashtron serialization problem:", err.Error())
+			} else {
+				h.l.Println(buf)
+				println("EMPTY SOL saved! SIZE == 0")
+			}
+		}
 		return 1, tron
 	}
 

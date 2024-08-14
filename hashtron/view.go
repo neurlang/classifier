@@ -141,6 +141,7 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 	var number, number0, number1, xor uint32
 	var buf [1]byte
 	var inside bool
+	h.program = nil
 	for {
 		_, err := b.Read(buf[0:1])
 		if err != nil {
@@ -171,5 +172,6 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			number = 0
 		}
 	}
+
 	return nil
 }

@@ -22,12 +22,15 @@ func init() {
 }
 
 func main() {
-	const fanout = 13
+	const fanout1 = 3
+	const fanout2 = 12
+	const fanout3 = 3
+	const fanout4 = 12
 	var net feedforward.FeedforwardNetwork
-	//net.NewLayer(fanout*fanout*fanout*fanout, 0)
-	//net.NewCombiner(majpool2d.MustNew(fanout*fanout, 1, fanout*fanout, 1, 1, 1, 1))
-	net.NewLayer(fanout*fanout, 0)
-	net.NewCombiner(majpool2d.MustNew(fanout, 1, fanout, 1, fanout, 1, 1))
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
+	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
+	net.NewLayer(fanout1*fanout2, 0) //, 1<<fanout2)
+	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
 	net.NewLayer(1, 0)
 
 	trainWorst := func(worst int) {
@@ -44,7 +47,7 @@ func main() {
 					var input = isvirus.Input(isvirus.Inputs[jjj])
 					var output = isvirus.Output(isvirus.Outputs[jjj])
 
-					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
+					net.Tally3(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
 						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
 					})
 					wg.Done()
@@ -100,23 +103,30 @@ func main() {
 				var input = isvirus.Input(isvirus.Inputs[j])
 				var output = isvirus.Output(isvirus.Outputs[j])
 
-				var predicted = net.Infer(&input).Feature(0)
+				var predicted = net.Infer3(&input).Feature(0)
 				if predicted == output.Feature(0) {
 					percent++
 				}
 				errsum += uint64(error_abs(predicted, output.Feature(0)))
 			}
 		}
-		println("[success rate]", percent*100/len(isvirus.Inputs), "%", "with", errsum, "errors")
+		success := percent * 100 / len(isvirus.Inputs)
+		println("[success rate]", success, "%", "with", errsum, "errors")
+
+		err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
+		if err != nil {
+			println(err.Error())
+		}
+
 	}
 
-	for {
-		shuf := net.Shuffle(true)
+	for first := true;; first = false {
+		shuf := net.Branch(first)
 		evaluate()
 		for worst := 0; worst < len(shuf); worst++ {
 			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 			trainWorst(shuf[worst])
-			if worst == 0 {
+			if worst == 0 && first {
 				evaluate()
 			}
 		}

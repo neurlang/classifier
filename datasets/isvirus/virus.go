@@ -16,6 +16,22 @@ func (i *Input) Feature(n int) uint32 {
 	return uint32(i[m1]) | uint32(i[m2])<<8
 }
 
+func (i *Input) Parity() bool {
+	parity := false
+
+	for _, b := range *i {
+		for b > 0 {
+			if b&1 == 1 {
+				// Toggle the parity bool
+				parity = !parity
+			}
+			b >>= 1
+		}
+	}
+
+	return parity
+}
+
 type Output bool
 
 func (i *Output) Feature(n int) uint32 {

@@ -5,7 +5,7 @@ import "io"
 import "os"
 
 // WriteCompressedWeightsToFile writes model weights to a lzw file
-func (f FeedforwardNetwork) WriteCompressedWeightsToFile(name string) error {
+func (f *FeedforwardNetwork) WriteCompressedWeightsToFile(name string) error {
 	file, err := os.Create(name)
 	if err != nil {
 		return err
@@ -16,7 +16,7 @@ func (f FeedforwardNetwork) WriteCompressedWeightsToFile(name string) error {
 }
 
 // WriteCompressedWeights writes model weights to a writer
-func (f FeedforwardNetwork) WriteCompressedWeights(w io.Writer) error {
+func (f *FeedforwardNetwork) WriteCompressedWeights(w io.Writer) error {
 	lw := lzw.NewWriter(w, lzw.LSB, 8)
 
 	_, err := lw.Write([]byte("[\n"))
@@ -44,7 +44,7 @@ func (f FeedforwardNetwork) WriteCompressedWeights(w io.Writer) error {
 }
 
 // ReadCompressedWeightsFromFile reads model weights from a lzw file
-func (f FeedforwardNetwork) ReadCompressedWeightsFromFile(name string) error {
+func (f *FeedforwardNetwork) ReadCompressedWeightsFromFile(name string) error {
 	file, err := os.Open(name)
 	if err != nil {
 		return err
@@ -73,7 +73,6 @@ func (f *FeedforwardNetwork) ReadCompressedWeights(w io.Reader) error {
 		if err != nil {
 			return err
 		}
-
 	}
 	return lw.Close()
 }

@@ -156,13 +156,10 @@ func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 
 // Infer3 infers the network output based on input, after being trained by using Tally3
 func (f FeedforwardNetwork) Infer3(input FeedforwardNetworkParityInput) (ouput FeedforwardNetworkInput) {
-	in := FeedforwardNetworkInput(input)
-	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
-		in, _ = f.Forward(in, l_prev, -1, 0)
-	}
+	in := f.Infer(FeedforwardNetworkInput(input))
 	if input.Parity() {
 		return tally3io{
-			in: input,
+			par: input,
 			out: in,
 		}
 	}
@@ -218,12 +215,12 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 }
 
 type tally3io struct {
-	in FeedforwardNetworkParityInput
+	par FeedforwardNetworkParityInput
 	out FeedforwardNetworkInput
 }
 
 func (io tally3io) Feature(n int) uint32 {
-	if io.in.Parity() {
+	if io.par.Parity() {
 		return io.out.Feature(n) ^ 1
 	}
 	return io.out.Feature(n)
@@ -235,7 +232,7 @@ func (f *FeedforwardNetwork) Tally3(in FeedforwardNetworkParityInput, output Fee
 	worst int, tally *datasets.Tally, loss func(i FeedforwardNetworkInput) uint32) {
 
 	var newOut = tally3io{
-		in: in,
+		par: in,
 		out: output,
 	}
 

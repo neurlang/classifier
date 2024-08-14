@@ -155,6 +155,7 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			number += uint32(buf[0] - '0')
 		case ']':
 			if !inside {
+				h.program = append(h.program, [2]uint32{number0 ^ xor, number1})
 				return nil
 			}
 			inside = false
@@ -163,7 +164,7 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 		case ',':
 			if !inside {
 				h.program = append(h.program, [2]uint32{number0 ^ xor, number1})
-				xor = number0
+				xor ^= number0
 			} else {
 				number0 = number
 			}

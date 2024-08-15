@@ -20,15 +20,11 @@ func error_abs(a, b uint32) uint32 {
 	return b - a
 }
 
-func init() {
-	//isvirus.Balance()
-}
-
 func main() {
 	const fanout1 = 3
-	const fanout2 = 15
+	const fanout2 = 10
 	const fanout3 = 3
-	const fanout4 = 15
+	const fanout4 = 10
 	//const fanout5 = 3
 	//const fanout6 = 12
 	var net feedforward.FeedforwardNetwork
@@ -126,7 +122,7 @@ func main() {
 		}
 	}
 
-	err := net.ReadCompressedWeightsFromFile("output.56.json.t.lzw")
+	err := net.ReadCompressedWeightsFromFile("output.69.json.t.lzw")
 	if err != nil {
 		println(err.Error())
 	}

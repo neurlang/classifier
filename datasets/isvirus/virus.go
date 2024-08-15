@@ -17,19 +17,18 @@ func (i *Input) Feature(n int) uint32 {
 }
 
 func (i *Input) Parity() bool {
-	parity := false
+	var parity int
 
 	for _, b := range *i {
 		for b > 0 {
 			if b&1 == 1 {
-				// Toggle the parity bool
-				parity = !parity
+				parity ++
 			}
 			b >>= 1
 		}
 	}
 
-	return parity
+	return parity > len(*i) * 4
 }
 
 type Output bool

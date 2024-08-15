@@ -17,6 +17,11 @@ func (i *Input) Feature(n int) uint32 {
 }
 
 func (i *Input) Parity() bool {
+	if parity {
+		return false
+	}
+
+
 	var parity int
 
 	for _, b := range *i {
@@ -59,12 +64,10 @@ func decode(hexString string) (value [35]byte) {
 	return value
 }
 
+var parity = true
+
 func Balance() {
-	// Loop through true random (clean)
-	for i := len(clean); i < len(virus); i++ {
-		Inputs = append(Inputs, randomize())
-		Outputs = append(Outputs, false)
-	}
+	parity = false
 }
 
 func init() {

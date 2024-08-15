@@ -70,7 +70,7 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 			}
 
-		} else {
+		} else if !reverse {
 			// Select last neuron
 			o = append(o, base)
 		}

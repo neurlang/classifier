@@ -238,7 +238,9 @@ func (f *FeedforwardNetwork) Tally3(in FeedforwardNetworkParityInput, output Fee
 
 	output = newOut
 
-	f.Tally2(in, output, worst, tally, loss)
+	f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+		return loss(i) < loss(j)
+	})
 }
 
 // Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the

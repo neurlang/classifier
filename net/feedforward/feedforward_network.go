@@ -293,7 +293,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		}
 		for neg := 0; neg < 2; neg++ {
 			inter, computed := f.Forward(in, l, f.GetPosition(worst), neg)
-			if computed != neg {
+			if computed != neg == 1 {
 				compute[neg] = 1
 			} else {
 				compute[neg] = -1

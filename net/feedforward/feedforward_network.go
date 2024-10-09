@@ -293,7 +293,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		}
 		for neg := 0; neg < 2; neg++ {
 			inter, computed := f.Forward(in, l, f.GetPosition(worst), neg)
-			if computed == (neg == 1) {
+			if computed {
 				compute[neg] = 1
 			} else {
 				compute[neg] = -1
@@ -324,12 +324,25 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 				return
 			}
 		}
-		if less(predicted[0], predicted[1]) {
-			// shift away to less wrong output
-			tally.AddToImprove(ifw, compute[0])
+		// Further refined part
+		if less(output, predicted[0]) != less(output, predicted[1]) {
+			// Output is between the two predictions
+			if less(output, predicted[0]) {
+				// shift away from wrong
+				tally.AddToImprove(ifw, -compute[0])
+			} else {
+				// shift away from wrong
+				tally.AddToImprove(ifw, -compute[1])
+			}
 		} else {
-			// shift away to less wrong output
-			tally.AddToImprove(ifw, compute[1])
+			// Output is below or above
+			if less(output, predicted[1]) {
+				// shift towards better
+				tally.AddToImprove(ifw, compute[0])
+			} else {
+				// shift towards better
+				tally.AddToImprove(ifw, compute[1])
+			}
 		}
 	}
 	if len(f.mapping) > l && f.mapping[l] > 0 {

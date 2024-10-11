@@ -1,6 +1,5 @@
 package full
 
-
 // Put inserts a boolean at position n.
 func (f *Full) Put(n int, v bool) {
 	f.vec[n] = v
@@ -26,4 +25,3 @@ func (f *Full) Feature(n int) (o uint32) {
 func (f *Full) Disregard(n int) bool {
 	return false
 }
-

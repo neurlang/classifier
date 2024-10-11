@@ -1,6 +1,5 @@
 package conv2d
 
-
 // Put inserts a boolean at position n.
 func (f *Conv2D) Put(n int, v bool) {
 	f.vec[n] = v
@@ -22,16 +21,16 @@ func (f *Conv2D) Feature(n int) (o uint32) {
 	}
 
 	for i := 0; i < f.subheight; i++ {
-	for j := 0; j < f.subwidth; j++ {
-		if f.shift != 0 {
-			if (i * f.subwidth + j) % f.shift == 0 {
-				o <<= shift
+		for j := 0; j < f.subwidth; j++ {
+			if f.shift != 0 {
+				if (i*f.subwidth+j)%f.shift == 0 {
+					o <<= shift
+				}
+			}
+			if (f.vec)[nadd+(f.width*ny+nx)+(f.width*i+j)] {
+				o++
 			}
 		}
-		if (f.vec)[nadd + (f.width*ny+nx)+(f.width*i+j)] {
-			o++
-		}
-	}
 	}
 	return
 }
@@ -43,4 +42,3 @@ func (f *Conv2D) Feature(n int) (o uint32) {
 func (f *Conv2D) Disregard(n int) bool {
 	return false
 }
-

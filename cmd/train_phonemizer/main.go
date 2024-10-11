@@ -1,5 +1,6 @@
 package main
 
+import "os"
 import "sync"
 import "fmt"
 import "runtime"
@@ -28,6 +29,11 @@ func main() {
 	}
 
 	datakeys, datavalues := phonemizer.Split(phonemizer.NewDataset(*cleantsv))
+
+	if len(datakeys) == 0 && len(datavalues) == 0 {
+		println("it looks like no data for this language, or language is unambiguous (no model needed)")
+		return
+	}
 
 	const fanout1 = 3
 	const fanout2 = 12
@@ -125,6 +131,11 @@ func main() {
 		err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
 		if err != nil {
 			println(err.Error())
+		}
+
+		if success == 100 {
+			println("Max accuracy or wrong data. Exiting")
+			os.Exit(0)
 		}
 	}
 

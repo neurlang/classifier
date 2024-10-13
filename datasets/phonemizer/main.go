@@ -107,7 +107,8 @@ func NewDataset(filename string) (out map[Sample]bool) {
 			if _, ok := oneway[srcv]; ok {
 				continue
 			}
-			for option := range multiway[dsta[i]] {
+			for option := range multiway[srcv] {
+			
 				if option != dsta[i] {
 					j := len(srca) - i
 					out[[...]uint32{
@@ -141,7 +142,7 @@ func NewDataset(filename string) (out map[Sample]bool) {
 				continue
 			}
 			j := len(srca) - i
-			option := dsta[i]
+			option := dsta[i]	
 			out[[...]uint32{
 				hash.StringsHash(0, srca[1*i/2:i+j/2]),
 				hash.StringsHash(0, srca[2*i/3:i+j/3]),

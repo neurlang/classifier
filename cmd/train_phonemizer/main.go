@@ -21,7 +21,10 @@ func error_abs(a, b uint32) uint32 {
 
 func main() {
 	cleantsv := flag.String("cleantsv", "", "clean tsv dataset for the language")
+	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
 	flag.Parse()
+
+	var improved_success_rate = 0
 
 	if cleantsv == nil || *cleantsv == "" {
 		println("clean tsv is mandatory")
@@ -131,6 +134,14 @@ func main() {
 		err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
 		if err != nil {
 			println(err.Error())
+		}
+
+		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
+			improved_success_rate = success
+			err := net.WriteCompressedWeightsToFile(*dstmodel)
+			if err != nil {
+				println(err.Error())
+			}
 		}
 
 		if success == 100 {

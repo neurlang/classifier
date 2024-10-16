@@ -126,5 +126,5 @@ remainder_loop:
     JNZ remainder_loop         // Continue if remaining elements
 
 end_loop:
-    VZEROUPPER                 // Clear upper parts of YMM registers
+    //VZEROUPPER                 // Clear upper parts of YMM registers - not needed if we don't use it
     RET

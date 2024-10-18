@@ -14,6 +14,10 @@ TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
     // Broadcast max to Z31
     VPBROADCASTD R8, Z31
 
+    // Prepare to use mask: move immediate 21845 into eax (k1 corresponds to 0b0101010101010101)
+    MOVL $21845, AX
+    KMOVW K1, AX
+
     // Check if we have at least 16 elements
     CMPQ R9, $16
     JL remainder_loop
@@ -52,20 +56,20 @@ loop:
     VPADDD Z1, Z2, Z2
 
     // Modular reduction: (uint64(m) * uint64(max)) >> 32
-    // first multiply (even lanes)
+    // First multiply (even lanes)
     VPMULUDQ Z31, Z2, Z3
-    // prepare odd lanes multiply
-    VPSRLQ $32, Z3, Z3
+
+    // Prepare for second multiply (shift odd lanes right by 32 bits)
     VPSRLQ $32, Z2, Z2
-    // second multiply (odd lanes)
+
+    // Second multiply (odd lanes)
     VPMULUDQ Z31, Z2, Z2
-    // clear wrong lane
-    VPSRLQ $32, Z2, Z2
-    VPSLLQ $32, Z2, Z2
-    // combine odd and even lanes
-    VPORQ Z2, Z3, Z3
-  
-    // Store result
+
+
+    // Shuffle and blend using the mask
+    VPSHUFD $245, Z3, Z2
+
+    // Store result back
     VMOVDQU32 Z3, (DI)
 
     ADDQ $64, SI

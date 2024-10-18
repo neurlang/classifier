@@ -1,7 +1,14 @@
 #include "textflag.h"
 
 // Data section for the shuffle constant lookup table
-DATA ·LCPI0_0+0(SB)/64, ZCONSTANT64 $0x0, $0x1, $0x2, $0x3, $0x4, $0x5, $0x6, $0x7
+DATA ·LCPI0_0+0(SB)/8, $0x0
+DATA ·LCPI0_0+8(SB)/8, $0x1
+DATA ·LCPI0_0+16(SB)/8, $0x2
+DATA ·LCPI0_0+24(SB)/8, $0x3
+DATA ·LCPI0_0+32(SB)/8, $0x4
+DATA ·LCPI0_0+40(SB)/8, $0x5
+DATA ·LCPI0_0+48(SB)/8, $0x6
+DATA ·LCPI0_0+56(SB)/8, $0x7
 
 // func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max uint32, length uint32)
 TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40

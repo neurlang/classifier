@@ -1,24 +1,5 @@
 #include "textflag.h"
 
-// Constant data section
-DATA ·LCPI0_0+0(SB)/4, $1
-DATA ·LCPI0_0+4(SB)/4, $17
-DATA ·LCPI0_0+8(SB)/4, $3
-DATA ·LCPI0_0+12(SB)/4, $19
-DATA ·LCPI0_0+16(SB)/4, $5
-DATA ·LCPI0_0+20(SB)/4, $21
-DATA ·LCPI0_0+24(SB)/4, $7
-DATA ·LCPI0_0+28(SB)/4, $23
-DATA ·LCPI0_0+32(SB)/4, $9
-DATA ·LCPI0_0+36(SB)/4, $25
-DATA ·LCPI0_0+40(SB)/4, $11
-DATA ·LCPI0_0+44(SB)/4, $27
-DATA ·LCPI0_0+48(SB)/4, $13
-DATA ·LCPI0_0+52(SB)/4, $29
-DATA ·LCPI0_0+56(SB)/4, $15
-DATA ·LCPI0_0+60(SB)/4, $31
-GLOBL ·LCPI0_0(SB), RODATA, $64
-
 
 // func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max uint32, length uint32)
 TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
@@ -81,11 +62,11 @@ loop:
     VPMULUDQ Z31, Z1, Z1
 
     // Load permutation table
-    VMOVDQA64 ·LCPI0_0(SB), Z5
+    VMOVDQA64 ·lCPI0_0(SB), Z0
     // Permute the result
-    VPERMI2D Z1, Z2, Z5
+    VPERMI2D Z1, Z2, Z0
 
-    VMOVDQU32 Z5, (DI)   // Store result
+    VMOVDQU32 Z0, (DI)   // Store result
 
 
     ADDQ $64, SI
@@ -146,5 +127,5 @@ remainder_loop:
     JNZ remainder_loop         // Continue if remaining elements
 
 end_loop:
-    //VZEROUPPER                 // Clear upper parts of YMM registers - not needed if we don't use it
+    VZEROUPPER                 // Clear upper parts of YMM registers - not needed if we don't use it
     RET

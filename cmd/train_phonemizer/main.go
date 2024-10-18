@@ -22,6 +22,7 @@ func error_abs(a, b uint32) uint32 {
 func main() {
 	cleantsv := flag.String("cleantsv", "", "clean tsv dataset for the language")
 	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
+	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
 

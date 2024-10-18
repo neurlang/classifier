@@ -4,13 +4,11 @@ import "sync"
 import "fmt"
 import "runtime"
 import "math"
-import "math/rand"
 
 import "github.com/neurlang/classifier/datasets/isvirus"
 import "github.com/neurlang/classifier/layer/majpool2d"
 import "github.com/neurlang/classifier/datasets"
-import "github.com/neurlang/classifier/learning"
-import "github.com/neurlang/classifier/hashtron"
+import "github.com/neurlang/classifier/learning/avx"
 import "github.com/neurlang/classifier/net/feedforward"
 
 func error_abs(a, b uint32) uint32 {
@@ -37,10 +35,6 @@ func main() {
 	net.NewLayer(1, 0)
 
 	var bestErr = ^uint64(0)
-	var bestDoneRun = int(1)
-	var bestRun = int(0)
-	var needReset bool
-	var bestBackup = make(map[int]hashtron.Hashtron)
 
 	evaluate := func(final bool) {
 		var mut sync.Mutex
@@ -87,42 +81,23 @@ func main() {
 			println("[initial success rate]", success, "%", "with", errsum, "errors")
 			// initial
 			bestErr = errsum
-			needReset = false
-			bestRun = 1
 		} else if errsum < bestErr {
 			println("[improved success rate]", success, "%", "with", errsum, "errors")
 			// improvement
 			bestErr = errsum
-			bestDoneRun = bestRun
-			bestRun = 1
-			needReset = false
-			bestBackup = make(map[int]hashtron.Hashtron)
 
 			err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
 			if err != nil {
 				println(err.Error())
 			}
 
-		} else if final {
-			bestRun++
-			if rand.Intn(1+bestDoneRun) == 0 {
-				needReset = true
-			}
-		} else if needReset {
+		} else {
 
-			// recover branch from backup
-			for k, v := range bestBackup {
-				ptr := net.GetHashtron(k)
-				*ptr = v
-			}
-			bestBackup = make(map[int]hashtron.Hashtron)
-			bestRun = 1
-			needReset = false
-			println("[reset to last good model]")
+			println("[same success rate]", success, "%", "with", errsum, "errors")
 		}
 	}
 
-	err := net.ReadCompressedWeightsFromFile("output.69.json.t.lzw")
+	err := net.ReadCompressedWeightsFromFile("output.87.json.t.lzw")
 	if err != nil {
 		println(err.Error())
 	}
@@ -143,7 +118,7 @@ func main() {
 					var input = isvirus.Input(isvirus.Inputs[jjj])
 					var output = isvirus.Output(isvirus.Outputs[jjj])
 
-					net.Tally3(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
+					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
 						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
 					})
 					wg[gg].Done()
@@ -158,7 +133,7 @@ func main() {
 		}
 		wg[g^1].Wait()
 
-		var h learning.HyperParameters
+		var h avx.HyperParameters
 		h.Threads = runtime.NumCPU()
 		h.Factor = 1 // affects the solution size
 
@@ -180,6 +155,9 @@ func main() {
 		h.InitialLimit = 1000 + 4*tally.Len()
 		h.EndWhenSolved = true
 
+		h.AvxLanes = 16
+		h.AvxSkip = 4
+
 		h.Name = fmt.Sprint(worst)
 		//h.SetLogger("solutions11.txt")
 
@@ -190,18 +168,15 @@ func main() {
 			panic(err.Error())
 		}
 		ptr := net.GetHashtron(worst)
-		if _, ok := bestBackup[worst]; !ok {
-			bestBackup[worst] = *ptr
-		}
 		*ptr = *htron
 
 		tally.Free()
 		runtime.GC()
 	}
 
-	for first := err != nil; ; first = !first {
-		shuf := net.Branch(first)
-		evaluate(first)
+	for {
+		shuf := net.Branch(false)
+		evaluate(false)
 		for worst := 0; worst < len(shuf); worst++ {
 			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 			trainWorst(shuf[worst])

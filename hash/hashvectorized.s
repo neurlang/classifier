@@ -1,15 +1,24 @@
 #include "textflag.h"
 
-// Data section for the shuffle constant lookup table
-GLOBL LCPI0_0(SB), RODATA, $64
-DATA LCPI0_0+0(SB)/8, $0x0
-DATA LCPI0_0+8(SB)/8, $0x1
-DATA LCPI0_0+16(SB)/8, $0x2
-DATA LCPI0_0+24(SB)/8, $0x3
-DATA LCPI0_0+32(SB)/8, $0x4
-DATA LCPI0_0+40(SB)/8, $0x5
-DATA LCPI0_0+48(SB)/8, $0x6
-DATA LCPI0_0+56(SB)/8, $0x7
+// Constant data section
+DATA ·LCPI0_0+0(SB)/4, $1
+DATA ·LCPI0_0+4(SB)/4, $17
+DATA ·LCPI0_0+8(SB)/4, $3
+DATA ·LCPI0_0+12(SB)/4, $19
+DATA ·LCPI0_0+16(SB)/4, $5
+DATA ·LCPI0_0+20(SB)/4, $21
+DATA ·LCPI0_0+24(SB)/4, $7
+DATA ·LCPI0_0+28(SB)/4, $23
+DATA ·LCPI0_0+32(SB)/4, $9
+DATA ·LCPI0_0+36(SB)/4, $25
+DATA ·LCPI0_0+40(SB)/4, $11
+DATA ·LCPI0_0+44(SB)/4, $27
+DATA ·LCPI0_0+48(SB)/4, $13
+DATA ·LCPI0_0+52(SB)/4, $29
+DATA ·LCPI0_0+56(SB)/4, $15
+DATA ·LCPI0_0+60(SB)/4, $31
+GLOBL ·LCPI0_0(SB), RODATA, $64
+
 
 // func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max uint32, length uint32)
 TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
@@ -64,28 +73,20 @@ loop:
     VPXORD Z3, Z2, Z2
 
     // m += s
-    VPADDD Z1, Z2, Z2
+    VPADDD Z1, Z2, Z1  // Z2 = Z1 + Z2
 
-    // Modular reduction: (uint64(m) * uint64(max)) >> 32
-    // First multiply (even lanes)
-    VPMULUDQ Z31, Z2, Z3  // Z3 = Z1 * Z2 (even lanes)
+    VPMULUDQ  Z31, Z1, Z2
+    VPSRLQ $32, Z31, Z31
+    VPSRLQ $32, Z1, Z1
+    VPMULUDQ Z31, Z1, Z1
 
-    // Shift right by 32 bits to handle the odd lanes
-    VPSRLQ $32, Z2, Z2   // Z2 >>= 32
-    VPSRLQ $32, Z1, Z1   // Z1 >>= 32
+    // Load permutation table
+    VMOVDQA64 ·LCPI0_0(SB), Z5
+    // Permute the result
+    VPERMI2D Z1, Z2, Z5
 
-    // Second multiply (odd lanes)
-    VPMULUDQ Z31, Z2, Z2  // Z2 = Z1 * Z2 (odd lanes)
+    VMOVDQU32 Z5, (DI)   // Store result
 
-    // Load constant lookup table for permutation
-    // The constant table will be placed later in the data section
-    VMOVDQA64 ·LCPI0_0(SB), Z0  // Z0 = constant shuffle table
-
-    // Use vpermi2d to interleave the results from Z3 and Z2 based on the lookup table in Z0
-    VPERMI2D Z3, Z0, Z2  // Z2 = interleave(Z3, Z0, Z2)
-
-    // Store result back
-    VMOVDQU32 Z2, (DI)
 
     ADDQ $64, SI
     ADDQ $64, DX

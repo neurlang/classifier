@@ -1,5 +1,8 @@
 #include "textflag.h"
 
+// Data section for the shuffle constant lookup table
+DATA ·LCPI0_0+0(SB)/64, ZCONSTANT64 $0x0, $0x1, $0x2, $0x3, $0x4, $0x5, $0x6, $0x7
+
 // func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max uint32, length uint32)
 TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
     MOVQ out+0(FP), DI
@@ -57,20 +60,24 @@ loop:
 
     // Modular reduction: (uint64(m) * uint64(max)) >> 32
     // First multiply (even lanes)
-    VPMULUDQ Z31, Z2, Z3
+    VPMULUDQ Z31, Z2, Z3  // Z3 = Z1 * Z2 (even lanes)
 
-    // Prepare for second multiply (shift odd lanes right by 32 bits)
-    VPSRLQ $32, Z2, Z2
+    // Shift right by 32 bits to handle the odd lanes
+    VPSRLQ $32, Z2, Z2   // Z2 >>= 32
+    VPSRLQ $32, Z1, Z1   // Z1 >>= 32
 
     // Second multiply (odd lanes)
-    VPMULUDQ Z31, Z2, Z2
+    VPMULUDQ Z31, Z2, Z2  // Z2 = Z1 * Z2 (odd lanes)
 
+    // Load constant lookup table for permutation
+    // The constant table will be placed later in the data section
+    VMOVDQA64 ·LCPI0_0(SB), Z0  // Z0 = constant shuffle table
 
-    // Shuffle and blend using the mask
-    VPSHUFD $245, Z3, Z2
+    // Use vpermi2d to interleave the results from Z3 and Z2 based on the lookup table in Z0
+    VPERMI2D Z3, Z0, Z2  // Z2 = interleave(Z3, Z0, Z2)
 
     // Store result back
-    VMOVDQU32 Z3, (DI)
+    VMOVDQU32 Z2, (DI)
 
     ADDQ $64, SI
     ADDQ $64, DX

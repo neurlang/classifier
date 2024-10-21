@@ -12,6 +12,7 @@ import "encoding/binary"
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/hash"
 import "github.com/neurlang/classifier/hashtron"
+import "github.com/klauspost/cpuid/v2"
 
 type modulo_t = uint32
 
@@ -246,9 +247,15 @@ var where byte
 var mutex sync.RWMutex
 
 func allocate(sets [][]byte, maxx uint32) {
+	maxx = (maxx+3)/4 + 7 // size plus word padding
+	data := make([]byte, len(sets) * int(maxx), len(sets) * int(maxx))
+
+	// sets[0] has to be lowest pointer
 	for i := range sets {
-		sets[i] = make([]byte, (maxx+3)/4, (maxx+3)/4)
+		sets[i] = data[0:maxx]
+		data = data[maxx:]
 	}
+	//all other sets pointers will be sorted and near each other
 }
 
 func prealpha(v []uint32, alphabet *[2][]uint32, i []uint32) {
@@ -269,31 +276,62 @@ func postalpha(v []uint32, alphabet *[2][]uint32, i []uint32, maxl_recip, j uint
 }
 func imod(v []uint32, alphabet *[2][]uint32, sets [][]byte, imodmax []uint32, j uint32, callback func(ii int)) {
 	for ii := range v {
-		if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 != byte(0) {
+		//if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 != byte(0) {
 			if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 == (byte((j^1)&1) + 1) {
 				//if modulo_t(j) > h.Printer {
 				//	if h.DisableProgressBar {
 				//		println("Backtracking:", j)
 				//	}
 				//}
-				sets[ii] = nil
+				for i := range sets[ii] {
+					sets[ii][i] = 0
+				}
 				imodmax[ii] = 0
 				v[ii] = alphabet[0][imodmax[ii]]
 				//continue outer
-				callback(ii)
+				//callback(ii)
 			}
-		}
+		//}
 	}
 }
-func setoralloc(v []uint32, sets [][]byte, maxx uint32, imodmax []uint32, j uint32) {
-	for ii := range v {
-		if sets[ii] == nil {
-			sets[ii] = make([]byte, (maxx+3)/4, (maxx+3)/4)
-		} else {
-			sets[ii][imodmax[ii]>>2] |= (byte(j&1) + 1) << ((imodmax[ii] & 3) << 1)
-		}
+
+
+var setoralloc func(sets [][]byte, imodmax []uint32, j uint32)
+func setorallocAVX512Vectorized(sets **uint8, imodmax *uint32, j uint32, len uint32)
+var lCPI0_0 = [16]uint32{0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,}
+func setorallocNotVectorized(sets [][]byte, imodmax []uint32, j uint32) {
+	for ii := range imodmax {
+		sets[ii][imodmax[ii]>>2] |= (byte(j&1) + 1) << ((imodmax[ii] & 3) << 1)
 	}
 }
+
+
+func init() {
+	// Check if the CPU supports AVX512
+	if cpuid.CPU.Supports(cpuid.AVX512F, cpuid.AVX512DQ) {
+		setoralloc = func(sets [][]byte, imodmax []uint32, j uint32) {
+			//expp := make([]byte, len(imodmax), len(imodmax))
+			//for ii := range imodmax {
+			//	expp[ii] = sets[ii][imodmax[ii]>>2]
+			//}
+			setp := make([]*byte, len(sets), len(sets))
+			for i := range sets {
+				setp[i] = &sets[i][0]
+			}
+			//fmt.Println(setp)
+			//setorallocNotVectorized(sets, imodmax, j)
+			setorallocAVX512Vectorized(&setp[0], &imodmax[0], j, uint32(len(imodmax)))
+			//for ii := range imodmax {
+			//	if sets[ii][imodmax[ii]>>2] != expp[ii] | (byte(j&1) + 1) << ((imodmax[ii] & 3) << 1) {
+			//		println("self checking failed", ii, expp[ii], sets[ii][imodmax[ii]>>2], sets[ii][0], sets[ii][1], sets[ii][2], sets[ii][3], )
+			//	}
+			//}
+		}
+	} else {
+		setoralloc = setorallocNotVectorized
+	}
+}
+
 
 
 func (h *HyperParameters) reduce(center, maxx uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
@@ -345,7 +383,7 @@ func (h *HyperParameters) reduce(center, maxx uint32, maxl modulo_t, alphabet *[
 							salts[ii] ^= center
 						})
 
-						setoralloc(v, sets, maxx, i, j)
+						setoralloc(sets, i, j)
 
 					}
 					// exit if other thread won

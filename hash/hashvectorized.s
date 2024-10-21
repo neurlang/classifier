@@ -5,32 +5,27 @@
 TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
     MOVQ out+0(FP), DI
     MOVQ n+8(FP), SI
-    MOVQ s+16(FP), DX
+    MOVQ s+16(FP), CX
     MOVL max+24(FP), R8
-    MOVL len+28(FP), CX
+    MOVL len+28(FP), DX
 
     // Preserve length for bounds checking
-    MOVL CX, R9
-
-    // Broadcast max to Z31
-    VPBROADCASTD R8, Z31
+    MOVL DX, R9
 
     // Prepare to use mask: move immediate 21845 into eax (k1 corresponds to 0b0101010101010101)
     MOVL $21845, AX
     KMOVW K1, AX
 
     // Check if we have at least 16 elements
-    CMPQ R9, $16
+    CMPL R9, $16
     JL remainder_loop
 
-    // Process 16 elements at a time
-    SHRQ $4, CX
-    JZ remainder_loop
-
 loop:
+    // Broadcast max to Z31
+    VPBROADCASTD R8, Z31
     // Load 16 elements from n and s
     VMOVDQU32 (SI), Z0
-    VMOVDQU32 (DX), Z1
+    VMOVDQU32 (CX), Z1
 
     // m = n - s
     VPSUBD Z1, Z0, Z2
@@ -62,7 +57,7 @@ loop:
     VPMULUDQ Z31, Z1, Z1
 
     // Load permutation table
-    VMOVDQA64 ·lCPI0_0(SB), Z0
+    VMOVDQU32 ·lCPI0_0(SB), Z0
     // Permute the result
     VPERMI2D Z1, Z2, Z0
 
@@ -70,18 +65,19 @@ loop:
 
 
     ADDQ $64, SI
-    ADDQ $64, DX
+    ADDQ $64, CX
     ADDQ $64, DI
-    SUBQ $16, R9
-    DECQ CX
-    JNZ loop
+    SUBL $16, R9
+    // Check if we have at least 16 elements
+    CMPL R9, $16
+    JAE loop
 
 remainder_loop:
-    CMPQ R9, $0
+    CMPL R9, $0
     JE end_loop                // Exit if no elements left
 
     MOVL (SI), AX              // Load n (scalar)
-    MOVL (DX), BX              // Load s (scalar)
+    MOVL (CX), BX              // Load s (scalar)
     SUBL BX, AX                // m = n - s
 
     // Hashing stage: XOR shifts
@@ -121,9 +117,10 @@ remainder_loop:
     MOVL DX, (DI)             // Store high 32 bits (EDX) to output
 
     ADDQ $4, SI                // Move to next n (advance pointer)
-    ADDQ $4, DX                // Move to next s (advance pointer)
+    ADDQ $4, CX                // Move to next s (advance pointer)
     ADDQ $4, DI                // Move to next out (advance pointer)
-    DECQ R9                    // Decrease remaining element count
+    DECL R9                    // Decrease remaining element count
+    CMPL R9, $0
     JNZ remainder_loop         // Continue if remaining elements
 
 end_loop:

@@ -9,7 +9,7 @@ import "flag"
 import "github.com/neurlang/classifier/datasets/phonemizer"
 import "github.com/neurlang/classifier/layer/majpool2d"
 import "github.com/neurlang/classifier/datasets"
-import "github.com/neurlang/classifier/learning/avx"
+import "github.com/neurlang/classifier/learning"
 import "github.com/neurlang/classifier/net/feedforward"
 
 func error_abs(a, b uint32) uint32 {
@@ -78,7 +78,7 @@ func main() {
 			wg.Wait()
 		}
 
-		var h avx.HyperParameters
+		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
 		h.Factor = 1 // affects the solution size
 
@@ -101,10 +101,10 @@ func main() {
 		h.EndWhenSolved = true
 
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions11.txt")
+		//h.SetLogger("solutions11.txt")
 		
-		h.AvxLanes = 16
-		h.AvxSkip = 4
+		//h.AvxLanes = 16
+		//h.AvxSkip = 4
 
 		fmt.Println("hashtron position:", worst, "(job size:", tally.Len(), ")")
 

@@ -9,6 +9,7 @@ import "compress/gzip"
 import "bytes"
 import "strings"
 import "math/rand"
+import "github.com/neurlang/classifier/hash"
 
 func userHomeDir() string {
 	dirname, err := os.UserHomeDir()
@@ -19,6 +20,7 @@ func userHomeDir() string {
 }
 
 const tmpDirectory = `/tmp/mnist/`
+
 var customDirectory = userHomeDir() + `/go/src/example.com/repo.git/classifier/datasets/mnist/`
 var rootDirectory = userHomeDir() + `/classifier/datasets/mnist/`
 var searchDirectories = []string{tmpDirectory, customDirectory, rootDirectory}
@@ -34,32 +36,44 @@ const trainDigVal = "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e801
 
 // original
 const ImgSize = 28
-var TrainSet, InferSet [][ImgSize*ImgSize]byte
+
+var TrainSet, InferSet [][ImgSize * ImgSize]byte
 var TrainLabels, InferLabels []byte
 
 // downscaled
 const SmallImgSize = 13
-var SmallTrainSet, SmallInferSet [][SmallImgSize*SmallImgSize]byte
+
+var SmallTrainSet, SmallInferSet [][SmallImgSize * SmallImgSize]byte
 
 // SmallInput is the type of small input image
-type SmallInput [SmallImgSize*SmallImgSize]byte
+type SmallInput [SmallImgSize * SmallImgSize]byte
 
 // Feature extracts the n-th feature from small input
 func (i *SmallInput) Feature(n int) uint32 {
-	n %= ((SmallImgSize-1)*(SmallImgSize-1))
-	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+SmallImgSize])<<16 | uint32(i[n+1+SmallImgSize])<<24
+	var ret uint32
+	for j := 0; j < 4; j++ {
+		ret ^= uint32(i[hash.Hash(uint32(n), uint32(j), SmallImgSize*SmallImgSize-1)]) << uint32(8*j)
+	}
+	return ret
+}
+func (i *SmallInput) Parity() bool {
+	return false
 }
 
-
 // Input is the type of input image
-type Input [ImgSize*ImgSize]byte
+type Input [ImgSize * ImgSize]byte
 
 // Feature extracts the n-th feature from input
 func (i *Input) Feature(n int) uint32 {
-	n %= ((ImgSize-1)*(ImgSize-1))
-	return uint32(i[n]) | uint32(i[n+1])<<8 | uint32(i[n+ImgSize])<<16 | uint32(i[n+1+ImgSize])<<24
+	var ret uint32
+	for j := 0; j < 4; j++ {
+		ret ^= uint32(i[hash.Hash(uint32(n), uint32(j), ImgSize*ImgSize-1)]) << uint32(8*j)
+	}
+	return ret
 }
-
+func (i *Input) Parity() bool {
+	return false
+}
 
 // ShuffleTrain shuffles the mnist train dataset
 func ShuffleTrain() {
@@ -69,6 +83,7 @@ func ShuffleTrain() {
 		SmallTrainSet[i], SmallTrainSet[j] = SmallTrainSet[j], SmallTrainSet[i]
 	})
 }
+
 // ShuffleInfer shuffles the mnist infer dataset
 func ShuffleInfer() {
 	rand.Shuffle(len(InferLabels), func(i, j int) {
@@ -117,8 +132,8 @@ func init() {
 outer:
 	for _, dir := range searchDirectories {
 		for hash, name := range files {
-			if _, err := os.Stat(dir+name); err == nil {
-				f, err := os.Open(dir+name)
+			if _, err := os.Stat(dir + name); err == nil {
+				f, err := os.Open(dir + name)
 				if err != nil {
 					globalErr = fmt.Errorf("Cannot open file to check file '%s': %e", dir+name, err)
 					continue outer
@@ -133,7 +148,7 @@ outer:
 				if fmt.Sprintf("%x", h.Sum(nil)) != hash {
 					globalErr = fmt.Errorf("File hash for file '%s' is incorrect", dir+name)
 				}
-				f, err = os.Open(dir+name)
+				f, err = os.Open(dir + name)
 				if err != nil {
 					globalErr = fmt.Errorf("Cannot open file to ungzip file '%s': err", dir+name, err)
 					continue outer
@@ -152,7 +167,7 @@ outer:
 					globalErr = fmt.Errorf("Buffering file '%s' Error: %e", dir+name, err)
 					continue outer
 				}
-				
+
 				// Get the uncompressed data as a byte slice
 				uncompressedData := uncompressedBuffer.Bytes()
 
@@ -163,23 +178,23 @@ outer:
 					// skip header
 					uncompressedData = uncompressedData[16:]
 
-					var numberImages = len(uncompressedData) / (ImgSize*ImgSize)
+					var numberImages = len(uncompressedData) / (ImgSize * ImgSize)
 
-					var set = make([][ImgSize*ImgSize]byte, numberImages, numberImages)
-					var smallSet = make([][SmallImgSize*SmallImgSize]byte, numberImages, numberImages)
+					var set = make([][ImgSize * ImgSize]byte, numberImages, numberImages)
+					var smallSet = make([][SmallImgSize * SmallImgSize]byte, numberImages, numberImages)
 
 					for i := range set {
-						var ptr = (ImgSize*ImgSize)*i
+						var ptr = (ImgSize * ImgSize) * i
 						copy(set[i][:], uncompressedData[ptr:])
 
-						var small [SmallImgSize*SmallImgSize]byte
+						var small [SmallImgSize * SmallImgSize]byte
 						for y := 0; y < SmallImgSize; y++ {
 							for x := 0; x < SmallImgSize; x++ {
-								var base = ptr+1+ImgSize
+								var base = ptr + 1 + ImgSize
 								small[y*SmallImgSize+x] = max4(
-									uncompressedData[base+(2*x)+(2*y*ImgSize)], 
+									uncompressedData[base+(2*x)+(2*y*ImgSize)],
 									uncompressedData[base+(2*x)+(2*y*ImgSize)+1],
-									uncompressedData[base+(2*x)+(2*y*ImgSize)+ImgSize], 
+									uncompressedData[base+(2*x)+(2*y*ImgSize)+ImgSize],
 									uncompressedData[base+(2*x)+(2*y*ImgSize)+ImgSize+1],
 								)
 							}
@@ -197,7 +212,7 @@ outer:
 				} else {
 					// skip header
 					uncompressedData = uncompressedData[8:]
-					
+
 					var set = uncompressedData
 
 					if isTrainFile {

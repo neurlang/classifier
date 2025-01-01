@@ -6,12 +6,15 @@ package main
 //import "math"
 //import "math/rand"
 import "flag"
+
 //import "os"
 import "github.com/neurlang/classifier/datasets/mnist"
+
 //import "github.com/neurlang/classifier/datasets"
 //import "github.com/neurlang/classifier/learning"
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+
 //import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
@@ -34,18 +37,21 @@ func main() {
 		panic(err.Error())
 	}
 
-	const fanout1 = 5
-	const fanout2 = 12
-	const fanout3 = 5
-	const fanout4 = 12
+	const fanout1 = 3
+	const fanout2 = 5
+	const fanout3 = 3
+	const fanout4 = 5
+	//const fanout5 = 3
+	//const fanout6 = 5
 
 	var net feedforward.FeedforwardNetwork
+	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
+	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
 	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
 	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
 	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
 	net.NewLayer(1, 0)
-
 
 	evaluate := func() {
 		var percent int
@@ -53,7 +59,7 @@ func main() {
 		for j := range mnist.InferLabels {
 			{
 				var input = mnist.SmallInput(mnist.SmallInferSet[j])
-				var output = feedforward.SingleValue(mnist.InferLabels[j]&1)
+				var output = feedforward.SingleValue(mnist.InferLabels[j] & 1)
 
 				var predicted = net.Infer(&input).Feature(0)
 				if predicted == output.Feature(0) {
@@ -72,7 +78,7 @@ func main() {
 		for j := range mnist.TrainLabels {
 			{
 				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
-				var output = feedforward.SingleValue(mnist.TrainLabels[j]&1)
+				var output = feedforward.SingleValue(mnist.TrainLabels[j] & 1)
 
 				var predicted = net.Infer(&input).Feature(0)
 				if predicted == output.Feature(0) {

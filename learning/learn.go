@@ -136,7 +136,7 @@ looop:
 		var set = make(map[uint32]struct{})
 
 		for n := range d {
-			dst := alphabet[n][0:0:maxl]
+			var dst = make([]uint32, 0, maxl)
 			for i := modulo_t(0); i < maxl; i++ {
 				hsh := hash.Hash(alphabet[n][i], sol[0], uint32(sol[1]))
 				if _, ok := set[hsh]; ok {
@@ -386,6 +386,7 @@ var where byte
 var mutex sync.RWMutex
 
 func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
+	wg := sync.WaitGroup{}
 	var out [2]uint32
 	mutex.Lock()
 	where++
@@ -395,7 +396,9 @@ func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2
 		rand.Shuffle(int(maxl), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
 	}
 	for t := 0; t < h.Threads; t++ {
+		wg.Add(1)
 		go func(tt byte) {
+			defer wg.Done()
 			mutex.RLock()
 			var my_where = where
 			mutex.RUnlock()
@@ -477,7 +480,7 @@ func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2
 				}
 				//println("{", s, ",", max, "}, // ", len(set0))
 				if out[1] > uint32(max) || (out[1] == 0 && out[0] == 0) {
-					out[0] = center^s
+					out[0] = center ^ s
 					out[1] = uint32(max)
 				}
 				mutex.Unlock()
@@ -505,6 +508,6 @@ func (h *HyperParameters) Reduce(center, max uint32, maxl modulo_t, alphabet *[2
 			println("Deadline")
 		}
 	}
-
+	wg.Wait()
 	return
 }

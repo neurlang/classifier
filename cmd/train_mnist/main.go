@@ -36,12 +36,16 @@ func main() {
 		panic(err.Error())
 	}
 
-	const fanout1 = 5
-	const fanout2 = 12
-	const fanout3 = 5
-	const fanout4 = 12
-
+	const fanout1 = 3
+	const fanout2 = 5
+	const fanout3 = 3
+	const fanout4 = 5
+	//const fanout5 = 3
+	//const fanout6 = 5
+	
 	var net feedforward.FeedforwardNetwork
+	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
+	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
 	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
 	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)

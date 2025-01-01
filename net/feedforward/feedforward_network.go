@@ -73,6 +73,20 @@ func (f FeedforwardNetwork) GetLayer(n int) int {
 	return -1
 }
 
+// Forget.
+func (f *FeedforwardNetwork) Forget() {
+	for _, v := range f.layers {
+		for j := range v {
+			h, _ := hashtron.New(nil, v[j].Bits())
+			if h != nil {
+				v[j] = *h
+			} else {
+				v[j] = hashtron.Hashtron{}
+			}
+		}
+	}
+}
+
 // GetPosition gets the position of hashtron within layer based on the overall
 // hashtron number. Returns -1 on failure.
 func (f FeedforwardNetwork) GetPosition(n int) int {
@@ -168,10 +182,11 @@ func (f FeedforwardNetwork) Infer3(input FeedforwardNetworkParityInput) (ouput F
 
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
 func (f FeedforwardNetwork) Infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
+	ouput = in
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
-		in, _ = f.Forward(in, l_prev, -1, 0)
+		ouput, _ = f.Forward(ouput, l_prev, -1, 0)
 	}
-	return in
+	return
 }
 
 // Forward solves the intermediate value (net output after layer l based on that layer's input in) and the bit
@@ -180,7 +195,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var combiner = f.combiners[l+1].Lay()
 		wg := sync.WaitGroup{}
-		for i := range f.layers[l] {
+		for i := 0; i < len(f.layers[l]); i++ {
 			wg.Add(1)
 			go func(i int) {
 				var feat = in.Feature(i)
@@ -198,6 +213,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		wg.Wait()
 		return combiner, computed
 	}
+
 	if len(f.mapping) > l && f.mapping[l] > 0 {
 		if f.premodulo[l] != 0 {
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
@@ -211,6 +227,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		var bit = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
 		return SingleValue(bit & 1), (bit & 1) != 0
 	}
+
 	return nil, false
 }
 
@@ -230,14 +247,12 @@ func (io tally3io) Feature(n int) uint32 {
 // Loss is 0 if the output is correct, below or equal to maxloss otherwise.
 func (f *FeedforwardNetwork) Tally3(in FeedforwardNetworkParityInput, output FeedforwardNetworkInput,
 	worst int, tally *datasets.Tally, loss func(i FeedforwardNetworkInput) uint32) {
-
-	var newOut = tally3io{
-		par: in,
-		out: output,
+	if in.Parity() {
+		output = tally3io{
+			par: in,
+			out: output,
+		}
 	}
-
-	output = newOut
-
 	f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 		return loss(i) < loss(j)
 	})
@@ -308,7 +323,6 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 			}
 			predicted[neg] = inter
 		}
-
 		if !less(predicted[0], output) && !less(predicted[1], output) &&
 			!less(output, predicted[0]) && !less(output, predicted[1]) {
 			// we are correct anyway
@@ -323,6 +337,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 				return
 			}
 		}
+
 		// Further refined part
 		if less(output, predicted[0]) != less(output, predicted[1]) {
 			// Output is between the two predictions
@@ -343,6 +358,7 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 				tally.AddToImprove(ifw, compute[1])
 			}
 		}
+		return
 	}
 	if len(f.mapping) > l && f.mapping[l] > 0 {
 		for l_prev := 0; l_prev < l; l_prev += 2 {

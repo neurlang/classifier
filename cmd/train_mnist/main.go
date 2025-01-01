@@ -3,11 +3,17 @@ package main
 import "sync"
 import "fmt"
 import "runtime"
+//import "math"
+//import "math/rand"
+import "flag"
+import "os"
 import "github.com/neurlang/classifier/datasets/mnist"
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
-import "github.com/neurlang/classifier/layer/conv2d"
+//import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+//import "github.com/neurlang/classifier/layer/full"
+//import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
 
 func error_abs(a, b uint32) uint32 {
@@ -18,55 +24,55 @@ func error_abs(a, b uint32) uint32 {
 }
 
 func main() {
+
+	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
+	flag.Bool("pgo", false, "enable pgo")
+	resume := flag.Bool("resume", false, "resume training")
+	flag.Parse()
+
+	var improved_success_rate = 0
+
 	if err := mnist.Error(); err != nil {
 		panic(err.Error())
 	}
+
+	const fanout1 = 5
+	const fanout2 = 12
+	const fanout3 = 5
+	const fanout4 = 12
+
 	var net feedforward.FeedforwardNetwork
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
+	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
+	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
+	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
+	net.NewLayer(1, 0)
 
-	//net.NewLayerP(121*121, 0, 1031)
-	//net.NewCombiner(conv2d.MustNew(121, 121, 6, 6, 1))
-	//net.NewLayer(116*116, 0)
-	//net.NewCombiner(majpool2d.MustNew(116, 116, 2, 2, 1, 1, 1))
-	//net.NewLayerP(58*58, 0, 1031)
-	//net.NewCombiner(conv2d.MustNew(58, 58, 5, 5, 1))
-	//net.NewLayer(54*54, 0)
-	//net.NewCombiner(majpool2d.MustNew(54, 54, 2, 2, 1, 1, 1))
 
-	net.NewLayer(27*27, 0) //2053
-	net.NewCombiner(conv2d.MustNew2(27, 27, 16, 16, 1, 4))
-	net.NewLayer(12*12, 0)
-	net.NewCombiner(majpool2d.MustNew(4, 4, 3, 3, 4, 4, 1))
-	net.NewLayerP(1, 4, 2053) //2053
-
-	//Load(net)
 
 	trainWorst := func(worst int) {
 		var tally = new(datasets.Tally)
 		tally.Init()
-		tally.SetFinalization(true)
+		tally.SetFinalization(false)
 
-		const group = 1000
-		for j := 0; j < len(mnist.InferLabels); j+=group {
+		const group = 500
+		for j := 0; j < len(mnist.TrainLabels); j += group {
 			wg := sync.WaitGroup{}
-			for jj := 0; jj < group && jj + j < len(mnist.InferLabels); jj++ {
+			for jj := 0; jj < group && jj+j < len(mnist.TrainLabels); jj++ {
 				wg.Add(1)
 				go func(jjj int) {
-					var input = mnist.Input(mnist.InferSet[jjj])
-					var output = feedforward.SingleValue(mnist.InferLabels[jjj])
+					var input = mnist.SmallInput(mnist.SmallTrainSet[jjj])
+					var output = feedforward.SingleValue(mnist.TrainLabels[jjj]&1)
 
 					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
 						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
 					})
 					wg.Done()
 
-				}(jj+j)
+				}(jj + j)
 
 			}
 			wg.Wait()
-		}
-
-		if !tally.GetImprovementPossible() {
-			return
 		}
 
 		var h learning.HyperParameters
@@ -91,15 +97,13 @@ func main() {
 		h.InitialLimit = 1000 + 4*tally.Len()
 		h.EndWhenSolved = true
 
-		//h.CuErase = true
-		//h.CuCutoff = 400
-		//h.CuMemoryPortion = 100
-		//h.CuMemoryBytes = 1000000000
-
 		h.Name = fmt.Sprint(worst)
-		h.SetLogger("solutions19.txt")
+		//h.SetLogger("solutions11.txt")
+		
+		//h.AvxLanes = 16
+		//h.AvxSkip = 4
 
-		fmt.Println(worst, tally.Len())
+		fmt.Println("hashtron position:", worst, "(job size:", tally.Len(), ")")
 
 		htron, err := h.Training(tally)
 		if err != nil {
@@ -112,38 +116,60 @@ func main() {
 		runtime.GC()
 	}
 	evaluate := func() {
-		var quality [2]int64
-		var errsum [2]uint64
-		for i, v := range [2][]byte{mnist.TrainLabels, mnist.InferLabels} {
-			for j := range v {
-				var input = mnist.Input(mnist.TrainSet[j])
-				var output = uint32(mnist.TrainLabels[j])
-				if i == 1 {
-					input = mnist.Input(mnist.InferSet[j])
-					output = uint32(mnist.InferLabels[j])
-				}
+		var percent int
+		var errsum uint64
+		for j := range mnist.TrainLabels {
+			{
+				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
+				var output = feedforward.SingleValue(mnist.TrainLabels[j]&1)
+
 				var predicted = net.Infer(&input).Feature(0)
-				if predicted == output {
-					quality[i]++
-				} else {
-					quality[i]--
+				if predicted == output.Feature(0) {
+					percent++
 				}
-				errsum[i] += uint64(error_abs(predicted, output))
+				errsum += uint64(error_abs(predicted, output.Feature(0)))
 			}
 		}
-		println(quality[0], errsum[0], quality[1], errsum[1])
+		success := percent * 100 / len(mnist.TrainLabels)
+		println("[success rate]", success, "%", "with", errsum, "errors")
+
+		if dstmodel == nil || *dstmodel == "" {
+			err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
+			if err != nil {
+				println(err.Error())
+			}
+		}
+
+		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
+			if improved_success_rate > 0 {
+				err := net.WriteCompressedWeightsToFile(*dstmodel)
+				if err != nil {
+					println(err.Error())
+				}
+			}
+			improved_success_rate = success
+		}
+
+		if success == 100 {
+			println("Max accuracy or wrong data. Exiting")
+			os.Exit(0)
+		}
 	}
-	//trainWorst(985)
+	if resume != nil && *resume && dstmodel != nil {
+		net.ReadCompressedWeightsFromFile(*dstmodel)
+	}
 	for {
+		shuf := net.Branch(false)
 		evaluate()
-		shuf := net.Shuffle(true)
-		for worst := 0; worst < net.Len(); worst++ {
-			println("training", worst)
+		for worst := 0; worst < len(shuf); worst++ {
+			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 			trainWorst(shuf[worst])
 			if worst == 0 {
 				evaluate()
 			}
 		}
-		net.SetLayersP(0)
 	}
+
+
+
 }

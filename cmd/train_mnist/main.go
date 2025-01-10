@@ -42,7 +42,7 @@ func main() {
 	const fanout4 = 5
 	//const fanout5 = 3
 	//const fanout6 = 5
-	
+
 	var net feedforward.FeedforwardNetwork
 	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
 	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
@@ -138,7 +138,7 @@ func main() {
 		println("[success rate]", success, "%", "with", errsum, "errors")
 
 		if dstmodel == nil || *dstmodel == "" {
-			err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
+			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.zlib")
 			if err != nil {
 				println(err.Error())
 			}
@@ -146,7 +146,7 @@ func main() {
 
 		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
 			if improved_success_rate > 0 {
-				err := net.WriteCompressedWeightsToFile(*dstmodel)
+				err := net.WriteZlibWeightsToFile(*dstmodel)
 				if err != nil {
 					println(err.Error())
 				}
@@ -160,7 +160,7 @@ func main() {
 		}
 	}
 	if resume != nil && *resume && dstmodel != nil {
-		net.ReadCompressedWeightsFromFile(*dstmodel)
+		net.ReadZlibWeightsFromFile(*dstmodel)
 	}
 	for {
 		shuf := net.Branch(false)
@@ -168,7 +168,7 @@ func main() {
 		for worst := 0; worst < len(shuf); worst++ {
 			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 			trainWorst(shuf[worst])
-			if worst == 0 {
+			if worst == len(shuf) - 2 {
 				evaluate()
 			}
 		}

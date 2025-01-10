@@ -53,6 +53,7 @@ func main() {
 	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
 	net.NewLayer(1, 0)
 
+
 	evaluate := func() {
 		var percent int
 		var errsum uint64
@@ -92,7 +93,7 @@ func main() {
 
 	}
 	if resume != nil && *resume && dstmodel != nil {
-		net.ReadCompressedWeightsFromFile(*dstmodel)
+		net.ReadZlibWeightsFromFile(*dstmodel)
 	}
 	evaluate()
 	evaluate2()

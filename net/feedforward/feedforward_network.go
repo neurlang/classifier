@@ -41,6 +41,13 @@ type FeedforwardNetworkParityInput interface {
 	Parity() bool
 }
 
+// FeedforwardNetworkParityInOutput is one individual sample to the feedforward network with parity and expected network output
+type FeedforwardNetworkParityInOutput interface {
+	Feature(n int) uint32
+	Parity() uint16
+	Output() uint16
+}
+
 // FeedforwardNetwork is the feedforward network
 type FeedforwardNetwork struct {
 	layers    [][]hashtron.Hashtron
@@ -180,6 +187,38 @@ func (f FeedforwardNetwork) Infer3(input FeedforwardNetworkParityInput) (ouput F
 	return in
 }
 
+type infer2io struct {
+	io FeedforwardNetworkParityInOutput
+}
+
+func (io infer2io) Feature(n int) uint32 {
+	return io.io.Feature(n)
+}
+
+func (io infer2io) Parity() uint16 {
+	return io.io.Parity()
+}
+
+func (io infer2io) Output() uint16 {
+	return io.io.Output()
+}
+
+func (io infer2io) Disregard(int) bool {
+	return false
+}
+
+// Infer2 infers the network output based on input, after being trained by using Tally4. This applies parity.
+func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) uint16 {
+	if input.Parity() == 0 {
+		return uint16(f.Infer(input).Feature(0))
+	}
+	output := Intermediate(infer2io{io: input})
+	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
+		output, _ = f.Forward(output, l_prev, -1, 0)
+	}
+	return (uint16(output.Feature(0)) ^ input.Parity()) & uint16(uint16(1<<f.GetBits())-1)
+}
+
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
 func (f FeedforwardNetwork) Infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
 	ouput = in
@@ -241,6 +280,41 @@ func (io tally3io) Feature(n int) uint32 {
 		return io.out.Feature(n) ^ 1
 	}
 	return io.out.Feature(n)
+}
+
+type tally4io struct {
+	io FeedforwardNetworkParityInOutput
+}
+
+func (io tally4io) Feature(_ int) uint32 {
+	return uint32(io.io.Output()) ^ uint32(io.io.Parity())
+}
+
+// Tally3 tallies the network on ParityInOutput, tuning the worst-th hashtron
+// in the network f storing data in tally. Loss can be nil if predicting power of 2 classes,
+// or an actual minus expected difference or any other loss (0 means correct).
+func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst int, tally *datasets.Tally,
+	loss func(actual, expected, mask uint32) uint32) {
+	if f.GetBits() <= 1 {
+		f.Tally(io, tally4io{io: io}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+			return (i.Feature(0)^j.Feature(0))&1 != 0
+		})
+		return
+	}
+	mask := uint32(uint32(1<<f.GetBits()) - 1)
+	out := uint32(io.Output()^io.Parity()) & mask
+	if loss == nil {
+		loss = func(actual, expected, mask uint32) uint32 {
+			if actual >= expected {
+				return actual - expected
+			}
+			return expected - actual
+		}
+	}
+	f.Tally2(io, tally4io{io: io}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
+		ifm := (i.Feature(0)) & mask
+		return loss(ifm, out, mask)
+	})
 }
 
 // Tally3 tallies the network like Tally2, except it can also balance the dataset using input parity bit.
@@ -379,4 +453,21 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		}
 		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, true)
 	}
+}
+
+// GetBits reports the number of bits predicted by this network
+func (f *FeedforwardNetwork) GetBits() (ret byte) {
+	if len(f.mapping) == 0 {
+		return 1
+	}
+	ret = f.mapping[len(f.mapping)-1]
+	if ret == 0 {
+		ret = 1
+	}
+	return
+}
+
+// GetBits reports the number of classes predicted by this network
+func (f *FeedforwardNetwork) GetClasses() (ret uint16) {
+	return uint16(1 << f.GetBits())
 }

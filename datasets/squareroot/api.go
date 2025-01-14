@@ -21,6 +21,7 @@ func (s *Sample) Output() uint16 {
 const SmallClasses = 4
 const MediumClasses = 5
 const BigClasses = 6
+const BigClasses = 7
 
 func Small() (ret []Sample) {
 	for i := uint16(0); i < 1<<8; i++ {
@@ -44,7 +45,7 @@ func Big() (ret []Sample) {
 }
 
 func Huge() (ret []Sample) {
-	for i := uint64(0); i < 1<<32; i++ {
+	for i := uint64(0); i < 1<<14; i++ {
 		ret = append(ret, Sample(i))
 	}
 	return

@@ -1,92 +1,45 @@
 // Package isvirus implements the IsVirus TLSH file Hashes machine learning Dataset
 package isvirus
 
-import "fmt"
-import "encoding/hex"
-import "crypto/rand"
+import "github.com/neurlang/classifier/datasets/stringhash"
 
-type Input [35]byte
+type Dataslice struct {}
 
-func (i *Input) Feature(n int) uint32 {
-	m1 := n % 35
-	m2 := n % 34
-	if m2 >= m1 {
-		m2++
+func (_ Dataslice) Get(n int) Sample {
+	if len(virus) <= n {
+		n -= len(virus)
+		return Sample(stringhash.Sample{
+			Str: clean[n],
+			Out: 0,
+		})
 	}
-	return uint32(i[m1]) | uint32(i[m2])<<8
+	return Sample(stringhash.Sample{
+		Str: virus[n],
+		Out: 1,
+	})
+}
+func (_ Dataslice) Len() int {
+	return len(virus) + len(clean)
 }
 
-func (i *Input) Parity() bool {
-	if parity {
-		return false
+type Sample stringhash.Sample
+type ByteSample stringhash.ByteSample
+
+func (s Sample) Balance() stringhash.BalancedSample {
+	return stringhash.BalancedSample{
+		Str: s.Str,
+		Out: s.Out,
 	}
-
-
-	var parity int
-
-	for _, b := range *i {
-		for b > 0 {
-			if b&1 == 1 {
-				parity ++
-			}
-			b >>= 1
-		}
-	}
-
-	return parity > len(*i) * 4
 }
-
-type Output bool
-
-func (i *Output) Feature(n int) uint32 {
-	if *i {
-		return 1
-	}
-	return 0
+func (s Sample) Byte() ByteSample {
+	return ByteSample(stringhash.ByteSample{
+		Buf: []byte(s.Str),
+		Out: s.Out,
+	})
 }
-
-var Inputs []Input
-var Outputs []Output
-
-func randomize() (value [35]byte) {
-	rand.Read(value[:])
-	return
-}
-func decode(hexString string) (value [35]byte) {
-	// Decode hex string to bytes
-	bytes, err := hex.DecodeString(hexString)
-	if err != nil {
-		fmt.Println("Error decoding hex string:", err)
-		return
-	}
-
-	copy(value[:], bytes)
-	return value
-}
-
-var parity = true
-
-func Balance() {
-	parity = false
-}
-
-func init() {
-	// Loop through virus
-	for _, v := range virus {
-
-		//if i == 1000 {break;}
-
-		Inputs = append(Inputs, decode(v))
-		Outputs = append(Outputs, true)
-
-	}
-	// Loop through clean
-	for _, v := range clean {
-
-		//if i == 1000 {break;}
-
-		Inputs = append(Inputs, decode(v))
-		Outputs = append(Outputs, false)
-
+func (s ByteSample) Balance() stringhash.BalancedByteSample {
+	return stringhash.BalancedByteSample{
+		Buf: s.Buf,
+		Out: s.Out,
 	}
 }

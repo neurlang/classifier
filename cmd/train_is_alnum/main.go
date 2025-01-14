@@ -4,22 +4,25 @@ package main
 import "runtime"
 
 import "github.com/neurlang/classifier/datasets/isalnum"
-import "github.com/neurlang/classifier/learning"
+import learning "github.com/neurlang/classifier/learning/avx"
 
 func main() {
 	var h learning.HyperParameters
-	var dataset = isalnum.Dataset
+	var dataset = isalnum.Dataslice{}.Set()
 
-	h.Threads = runtime.NumCPU()
+	h.Threads = 2
 	//affects initial modulo
-	h.Factor = 6
+	h.Factor = 3
+	
+	h.AvxLanes = 16
+	//h.AvxSkip = 4
 
 	// shuffle before solving attempts
 	h.Shuffle = true
 	h.Seed = true
 
 	// restart when stuck
-	h.DeadlineMs = 1000
+	h.DeadlineMs = 1000 * runtime.NumCPU() / 2
 	h.DeadlineRetry = 3
 
 	// additional modulo reduction, affects solution size
@@ -31,6 +34,8 @@ func main() {
 	// save any solution to disk
 	h.InitialLimit = 99999999
 	h.SetLogger("solutions.txt")
+
+	h.EndWhenSolved = true
 
 	h.Training(dataset)
 }

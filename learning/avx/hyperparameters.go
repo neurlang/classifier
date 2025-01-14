@@ -17,7 +17,7 @@ type HyperParameters struct {
 	learning.HyperParameters
 
 	AvxLanes uint32 // should be set to 16 for AVX512
-	AvxSkip uint32 // should be set to 1 to not skip work, >1 to skip some possibly repeated work
+	AvxSkip  uint32 // should be set to 1 to not skip work, >1 to skip some possibly repeated work
 
 	l *log.Logger
 }

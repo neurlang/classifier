@@ -414,7 +414,6 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, maxl uint32, alphab
 	resultSize := 2 * int64(unsafe.Sizeof(uint32(0)))
 	setSize := int64(tasks) * int64(((max+3)/4)+4) * int64(unsafe.Sizeof(uint8(0)))
 
-
 	d_input = *h.input
 	d_result = *h.result
 	d_fn := *h.fn
@@ -452,8 +451,6 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, maxl uint32, alphab
 		h.setSize = setSize
 		h.set = &d_set
 	}
-
-
 
 	err = cu.MemsetD32(d_result, 0, 2)
 	if err != nil {
@@ -504,12 +501,8 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, maxl uint32, alphab
 		return
 	}
 
-
-
 	result0 = result[0]
 	result1 = result[1]
-
-
 
 	return result0, result1
 }

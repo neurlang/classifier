@@ -67,7 +67,6 @@ func emptySpace(space int) string {
 	return emptySpace
 }
 
-
 // Solve directly solves a single hashtron on a splitted dataset d. It outputs the size of solution
 // and the trained hashtron if successful. Most callers should use Training instead.
 func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hashtron) {
@@ -248,7 +247,7 @@ var mutex sync.RWMutex
 
 func allocate(sets [][]byte, maxx uint32) {
 	maxx = (maxx+3)/4 + 7 // size plus word padding
-	data := make([]byte, len(sets) * int(maxx), len(sets) * int(maxx))
+	data := make([]byte, len(sets)*int(maxx), len(sets)*int(maxx))
 
 	// sets[0] has to be lowest pointer
 	for i := range sets {
@@ -266,7 +265,7 @@ func prealpha(v []uint32, alphabet *[2][]uint32, i []uint32) {
 
 func salt(salts []uint32, center, s, lanes uint32) {
 	for ii := range salts {
-		salts[ii] = center^(s+uint32(ii)*lanes)
+		salts[ii] = center ^ (s + uint32(ii)*lanes)
 	}
 }
 func postalpha(v []uint32, alphabet *[2][]uint32, i []uint32, maxl_recip, j uint32, maxl modulo_t) {
@@ -277,34 +276,35 @@ func postalpha(v []uint32, alphabet *[2][]uint32, i []uint32, maxl_recip, j uint
 func imod(v []uint32, alphabet *[2][]uint32, sets [][]byte, imodmax []uint32, j uint32, callback func(ii int)) {
 	for ii := range v {
 		//if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 != byte(0) {
-			if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 == (byte((j^1)&1) + 1) {
-				//if modulo_t(j) > h.Printer {
-				//	if h.DisableProgressBar {
-				//		println("Backtracking:", j)
-				//	}
-				//}
-				for i := range sets[ii] {
-					sets[ii][i] = 0
-				}
-				imodmax[ii] = 0
-				v[ii] = alphabet[0][imodmax[ii]]
-				//continue outer
-				//callback(ii)
+		if (sets[ii][imodmax[ii]>>2]>>((imodmax[ii]&3)<<1))&3 == (byte((j^1)&1) + 1) {
+			//if modulo_t(j) > h.Printer {
+			//	if h.DisableProgressBar {
+			//		println("Backtracking:", j)
+			//	}
+			//}
+			for i := range sets[ii] {
+				sets[ii][i] = 0
 			}
+			imodmax[ii] = 0
+			v[ii] = alphabet[0][imodmax[ii]]
+			//continue outer
+			//callback(ii)
+		}
 		//}
 	}
 }
 
-
 var setoralloc func(sets [][]byte, imodmax []uint32, j uint32)
+
 func setorallocAVX512Vectorized(sets **uint8, imodmax *uint32, j uint32, len uint32)
-var lCPI0_0 = [16]uint32{0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,}
+
+var lCPI0_0 = [16]uint32{0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30}
+
 func setorallocNotVectorized(sets [][]byte, imodmax []uint32, j uint32) {
 	for ii := range imodmax {
 		sets[ii][imodmax[ii]>>2] |= (byte(j&1) + 1) << ((imodmax[ii] & 3) << 1)
 	}
 }
-
 
 func init() {
 	// Check if the CPU supports AVX512
@@ -331,8 +331,6 @@ func init() {
 		setoralloc = setorallocNotVectorized
 	}
 }
-
-
 
 func (h *HyperParameters) reduce(center, maxx uint32, maxl modulo_t, alphabet *[2][]uint32) (off [2]uint32) {
 	var out [2]uint32
@@ -369,7 +367,6 @@ func (h *HyperParameters) reduce(center, maxx uint32, maxl modulo_t, alphabet *[
 					for j := uint32(0); j < 2*uint32(maxl); j++ {
 
 						//println("at", v, i)
-
 
 						hash.HashVectorized(i, v, salts, maxx)
 						postalpha(v, alphabet, i, maxl_recip, j, maxl)
@@ -433,14 +430,14 @@ func (h *HyperParameters) reduce(center, maxx uint32, maxl modulo_t, alphabet *[
 					}
 					//println("{", s, ",", maxx, "}, // ", len(set0))
 					if out[1] > uint32(maxx) || (out[1] == 0 && out[0] == 0) {
-						out[0] = center^s
+						out[0] = center ^ s
 						out[1] = uint32(maxx)
 					}
 					mutex.Unlock()
 					return
 				}
 			}
-		
+
 		}(byte(t))
 	}
 	mutex.RLock()

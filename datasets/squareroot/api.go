@@ -5,7 +5,7 @@ import "math"
 type Sample uint32
 
 func (s *Sample) Feature(n int) uint32 {
-	return uint32(*s) + uint32(n)
+	return uint32(*s)
 }
 
 func (s *Sample) Parity() uint16 {

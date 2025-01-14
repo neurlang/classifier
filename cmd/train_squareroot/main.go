@@ -1,6 +1,6 @@
 package main
 
-import "sync"
+import "sync/atomic"
 import "fmt"
 import "runtime"
 
@@ -18,6 +18,7 @@ import "github.com/neurlang/classifier/layer/majpool2d"
 //import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
+import "github.com/neurlang/classifier/parallel"
 
 func error_abs(a, b uint32) uint32 {
 	if a > b {
@@ -58,22 +59,13 @@ func main() {
 		tally.Init()
 		tally.SetFinalization(false)
 
-		const group = 500
-		for j := 0; j < len(dataset); j += group {
-			wg := sync.WaitGroup{}
-			for jj := 0; jj < group && jj+j < len(dataset); jj++ {
-				wg.Add(1)
-				go func(jjj int) {
-					var io = squareroot.Sample(dataset[jjj])
+		parallel.ForEach(len(dataset), 1000, func(jjj int) {
+			{
+				var io = squareroot.Sample(dataset[jjj])
 
-					net.Tally4(&io, worst, tally, nil)
-					wg.Done()
-
-				}(jj + j)
-
+				net.Tally4(&io, worst, tally, nil)
 			}
-			wg.Wait()
-		}
+		})
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -116,22 +108,21 @@ func main() {
 		runtime.GC()
 	}
 	evaluate := func() {
-		var percent int
-		var errsum uint64
-		for j := range dataset {
+		var percent, errsum atomic.Uint64
+		parallel.ForEach(len(dataset), 1000, func(j int) {
 			{
 				var io = squareroot.Sample(dataset[j])
 
 				var predicted = net.Infer2(&io)
 
 				if predicted == io.Output()%net.GetClasses() {
-					percent++
+					percent.Add(1)
 				}
-				errsum += uint64(error_abs(uint32(predicted), uint32(io.Output())))
+				errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
 			}
-		}
-		success := percent * 100 / len(dataset)
-		println("[success rate]", success, "%", "with", errsum, "errors")
+		})
+		success := 100 * int(percent.Load()) / len(dataset)
+		println("[success rate]", success, "%", "with", errsum.Load(), "errors")
 
 		if dstmodel == nil || *dstmodel == "" {
 			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.zlib")

@@ -5,11 +5,13 @@ import "github.com/neurlang/classifier/layer"
 
 type MajPool2DLayer struct {
 	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
+	fixed bool
 }
 
 type MajPool2D struct {
 	vec                                                                   []bool
 	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
+	fixed bool
 }
 
 // MustNew creates a new MajPool2D layer with size, subsize and repeat
@@ -37,6 +39,7 @@ func New2(width, height, subwidth, subheight, capwidth, capheight, repeat, bias 
 	o.capheight = capheight
 	o.repeat = repeat
 	o.bias = bias
+	o.fixed = true
 	return
 }
 
@@ -61,5 +64,6 @@ func (i *MajPool2DLayer) Lay() layer.Combiner {
 	o.capheight = i.capheight
 	o.repeat = i.repeat
 	o.bias = i.bias
+	o.fixed = i.fixed
 	return &o
 }

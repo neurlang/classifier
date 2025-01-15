@@ -1,6 +1,6 @@
 package majpool2d
 
-// Put sets the n-th bool directly and rotates the matrices if necessary.
+// Put sets the n-th bool directly.
 func (s *MajPool2D) Put(n int, v bool) {
 	s.vec[n] = v
 }
@@ -40,20 +40,30 @@ func (s *MajPool2D) Feature(m int) (o uint32) {
 	submatrix := s.subwidth * s.subheight
 	matrix := supermatrix * submatrix
 	base := (m / matrix) * matrix
-	starty := m / s.width
-	startx := m % s.width
+	var startx, starty int
+	if s.fixed {
+		m %= matrix
+		m /= submatrix
+		starty = ((m) / s.width) * s.capheight
+		startx = ((m) % s.width) * s.capwidth
+	} else {
+		starty = (m) / s.width
+		startx = (m) % s.width
+	}
 	for y := 0; y < s.capheight; y++ {
 		for x := 0; x < s.capwidth; x++ {
-			xx := (x + startx) % s.width
-			yy := (y + starty) % s.height
+			var xx, yy int
+			xx = (x + startx) % s.width
+			yy = (y + starty) % s.height
 			var w int
-			for m := 0; m < submatrix; m++ {
-				if (s.vec)[base+submatrix*(s.width*yy+xx)+m] {
+			for my := 0; my < s.subheight; my++ {
+			for mx := 0; mx < s.subwidth; mx++ {
+				if (s.vec)[base+(submatrix*(s.width*yy+xx))+(s.subwidth*my+mx)] {
 					w++
 				} else {
 					w--
 				}
-			}
+			}}
 			o <<= 1
 			if w > s.bias {
 				o |= 1

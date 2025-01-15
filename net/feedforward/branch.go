@@ -1,14 +1,12 @@
 package feedforward
 
-import "math/rand"
+import rand "math/rand"
 
 func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	o = make([]int, 0, f.LenLayers())
 
 	// Initialize base to account for the starting index of each layer
 	base := 0
-
-	var combiner = f.combiners[1].Lay()
 
 	var ii int
 
@@ -20,33 +18,25 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 		if i == 0 {
 
-			var q int
+			var combiner = f.combiners[1].Lay()
+			var q = rand.Intn(len(f.layers[i]))
 
-		outer:
-			for {
+			combiner.Put(q, true)
 
-				q = rand.Intn(len(f.layers[i]))
-
-				combiner.Put(q, true)
-
-				for j := 0; j < len(f.layers[i+2]); j++ {
-					if combiner.Feature(j) != 0 {
-						ii = j
-						break outer
-					}
+			for j := 0; j < len(f.layers[i+2]); j++ {
+				if combiner.Feature(j) != 0 {
+					ii = j
+					// Select a that neuron index in the current layer
+					o = append(o, base+q)
+					//break outer
 				}
-
 			}
-
-			// Select a that neuron index in the current layer
-			o = append(o, base+q)
 
 		} else if i+1 < f.LenLayers() {
 
-			combiner = f.combiners[i+1].Lay()
+			var combiner = f.combiners[i+1].Lay()
 
 			combiner.Put(ii, true)
-
 		outer2:
 			for jjj := 0; jjj < len(f.layers[i])*len(f.layers[i]); jjj++ {
 				jj := rand.Intn(len(f.layers[i]))

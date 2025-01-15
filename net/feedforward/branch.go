@@ -34,30 +34,34 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 		} else if i+1 < f.LenLayers() {
 
-			var combiner = f.combiners[i+1].Lay()
-
-			combiner.Put(ii, true)
 		outer2:
-			for jjj := 0; jjj < len(f.layers[i])*len(f.layers[i]); jjj++ {
-				jj := rand.Intn(len(f.layers[i]))
+			for jjjj := 0; jjjj < len(f.layers[i]); jjjj++ {
 
-				combiner.Put(jj, true)
+				var combiner = f.combiners[i+1].Lay()
 
-				for j := 0; j < len(f.layers[i+2]); j++ {
+				combiner.Put(ii, true)
 
-					combiner.Put(ii, combiner.Feature(j) == 0)
+				for jjj := 0; jjj < len(f.layers[i])*len(f.layers[i]); jjj++ {
+					jj := rand.Intn(len(f.layers[i]))
 
-					if combiner.Feature(j) == 0 {
-						ii = j
-						// Select a that neuron index in the current layer
-						o = append(o, base+jj)
-						break outer2
+					combiner.Put(jj, true)
+
+					for j := 0; j < len(f.layers[i+2]); j++ {
+
+						combiner.Put(ii, combiner.Feature(j) == 0)
+
+						if combiner.Feature(j) == 0 {
+							ii = j
+							// Select a that neuron index in the current layer
+							o = append(o, base+jj)
+							break outer2
+						}
+
+						combiner.Put(ii, combiner.Feature(j) != 0)
+
 					}
 
-					combiner.Put(ii, combiner.Feature(j) != 0)
-
 				}
-
 			}
 
 		} else if !reverse {

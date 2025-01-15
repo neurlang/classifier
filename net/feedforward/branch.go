@@ -18,24 +18,29 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 		if i == 0 {
 
-			var combiner = f.combiners[1].Lay()
-			var q = rand.Intn(len(f.layers[i]))
+		outer:
+			for jjjj := 0; jjjj < len(f.layers[i])*len(f.layers[i]); jjjj++ {
 
-			combiner.Put(q, true)
+				var combiner = f.combiners[1].Lay()
+				var q = rand.Intn(len(f.layers[i]))
 
-			for j := 0; j < len(f.layers[i+2]); j++ {
-				if combiner.Feature(j) != 0 {
-					ii = j
-					// Select a that neuron index in the current layer
-					o = append(o, base+q)
-					//break outer
+				combiner.Put(q, true)
+
+				for j := 0; j < len(f.layers[i+2]); j++ {
+					if combiner.Feature(j) != 0 {
+						ii = j
+						// Select a that neuron index in the current layer
+						o = append(o, base+q)
+						break outer
+					}
 				}
+
 			}
 
 		} else if i+1 < f.LenLayers() {
 
 		outer2:
-			for jjjj := 0; jjjj < len(f.layers[i]); jjjj++ {
+			for jjjj := 0; jjjj < len(f.layers[i])*len(f.layers[i]); jjjj++ {
 
 				var combiner = f.combiners[i+1].Lay()
 

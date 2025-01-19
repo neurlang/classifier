@@ -1,6 +1,6 @@
 package feedforward
 
-import rand "math/rand"
+import rand "math/rand/v2"
 
 func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	o = make([]int, 0, f.LenLayers())
@@ -17,7 +17,11 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 		}
 
 		if i+1 < f.LenLayers() {
-			ii %= f.LenLayers()
+			if i == 0 {
+				ii = rand.IntN(len(f.layers[i]))
+			} else {
+				ii %= len(f.layers[i])
+			}
 		outer2:
 			for jjjj := 0; jjjj < len(f.layers[i])*len(f.layers[i]); jjjj++ {
 
@@ -26,22 +30,27 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 				combiner.Put(ii, true)
 
 				for jjj := 0; jjj < len(f.layers[i])*len(f.layers[i]); jjj++ {
-					jj := rand.Intn(len(f.layers[i]))
+					jj := rand.IntN(len(f.layers[i]))
 
 					combiner.Put(jj, true)
 
-					for j := 0; j < len(f.layers[i+2]); j++ {
+					for j := 0; j < len(f.layers[i+2])*len(f.layers[i+2]); j++ {
+						q := rand.IntN(len(f.layers[i+2]))
+					
+						if combiner.Feature(q) == 0 {
+							continue
+						}
 
-						combiner.Put(ii, combiner.Feature(j) == 0)
+						combiner.Put(ii, false)
 
-						if combiner.Feature(j) == 0 {
-							ii = j
+						if combiner.Feature(q) == 0 {
 							// Select a that neuron index in the current layer
-							o = append(o, base+jj)
+							o = append(o, base+ii)
+							ii = q
 							break outer2
 						}
 
-						combiner.Put(ii, combiner.Feature(j) != 0)
+						combiner.Put(ii, true)
 
 					}
 

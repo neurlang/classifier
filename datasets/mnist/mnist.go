@@ -8,8 +8,7 @@ import "io"
 import "compress/gzip"
 import "bytes"
 import "strings"
-import "math/rand"
-import "github.com/neurlang/classifier/hash"
+import "github.com/neurlang/classifier/datasets/stringhash"
 
 func userHomeDir() string {
 	dirname, err := os.UserHomeDir()
@@ -19,79 +18,52 @@ func userHomeDir() string {
 	return dirname + "/"
 }
 
-const tmpDirectory = `/tmp/mnist/`
-
-var customDirectory = userHomeDir() + `/go/src/example.com/repo.git/classifier/datasets/mnist/`
-var rootDirectory = userHomeDir() + `/classifier/datasets/mnist/`
-var searchDirectories = []string{tmpDirectory, customDirectory, rootDirectory}
-
-const inferSetImg = "t10k-images-idx3-ubyte.gz"
-const inferSetVal = "t10k-labels-idx1-ubyte.gz"
-const trainSetImg = "train-images-idx3-ubyte.gz"
-const trainSetVal = "train-labels-idx1-ubyte.gz"
-const inferDigImg = "8d422c7b0a1c1c79245a5bcf07fe86e33eeafee792b84584aec276f5a2dbc4e6"
-const inferDigVal = "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
-const trainDigImg = "440fcabf73cc546fa21475e81ea370265605f56be210a4024d2ca8f203523609"
-const trainDigVal = "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c"
 
 // original
 const ImgSize = 28
 
-var TrainSet, InferSet [][ImgSize * ImgSize]byte
-var TrainLabels, InferLabels []byte
-
 // downscaled
 const SmallImgSize = 13
 
-var SmallTrainSet, SmallInferSet [][SmallImgSize * SmallImgSize]byte
-
 // SmallInput is the type of small input image
-type SmallInput [SmallImgSize * SmallImgSize]byte
+type SmallInput struct {
+	Image [SmallImgSize * SmallImgSize]byte
+	Label byte
+}
 
 // Feature extracts the n-th feature from small input
 func (i *SmallInput) Feature(n int) uint32 {
-	var ret uint32
-	for j := 0; j < 4; j++ {
-		ret ^= uint32(i[hash.Hash(uint32(n), uint32(j), SmallImgSize*SmallImgSize-1)]) << uint32(8*j)
-	}
-	return ret
+	return stringhash.ByteSample{Buf: i.Image[:]}.Feature(n)
 }
-func (i *SmallInput) Parity() bool {
-	return false
+func (i *SmallInput) Parity() uint16 {
+	//return stringhash.BalancedByteSample{Buf: i.Image[:]}.Parity()
+	return 0
+}
+
+func (i *SmallInput) Output() uint16 {
+	return uint16(i.Label)
 }
 
 // Input is the type of input image
-type Input [ImgSize * ImgSize]byte
+type Input struct {
+	Image [ImgSize * ImgSize]byte
+	Label byte
+}
 
 // Feature extracts the n-th feature from input
 func (i *Input) Feature(n int) uint32 {
-	var ret uint32
-	for j := 0; j < 4; j++ {
-		ret ^= uint32(i[hash.Hash(uint32(n), uint32(j), ImgSize*ImgSize-1)]) << uint32(8*j)
-	}
-	return ret
+	return stringhash.ByteSample{Buf: i.Image[:]}.Feature(n)
 }
-func (i *Input) Parity() bool {
-	return false
+func (i *Input) Parity() uint16 {
+	//return stringhash.BalancedByteSample{Buf: i.Image[:]}.Parity()
+	return 0
 }
 
-// ShuffleTrain shuffles the mnist train dataset
-func ShuffleTrain() {
-	rand.Shuffle(len(TrainLabels), func(i, j int) {
-		TrainLabels[i], TrainLabels[j] = TrainLabels[j], TrainLabels[i]
-		TrainSet[i], TrainSet[j] = TrainSet[j], TrainSet[i]
-		SmallTrainSet[i], SmallTrainSet[j] = SmallTrainSet[j], SmallTrainSet[i]
-	})
+func (i *Input) Output() uint16 {
+	return uint16(i.Label)
 }
 
-// ShuffleInfer shuffles the mnist infer dataset
-func ShuffleInfer() {
-	rand.Shuffle(len(InferLabels), func(i, j int) {
-		InferLabels[i], InferLabels[j] = InferLabels[j], InferLabels[i]
-		InferSet[i], InferSet[j] = InferSet[j], InferSet[i]
-		SmallInferSet[i], SmallInferSet[j] = SmallInferSet[j], SmallInferSet[i]
-	})
-}
+
 
 func max4(a, b, c, d byte) (o byte) {
 	o = a
@@ -107,42 +79,54 @@ func max4(a, b, c, d byte) (o byte) {
 	return o
 }
 
-var success byte
-var globalErr error
+func New() (TrainSet []Input, InferSet []Input, SmallTrainSet []SmallInput, SmallInferSet []SmallInput, err error) {
+	var success byte
+	var globalErr error
 
-// Error reports whether there was any error initializing the dataset
-func Error() error {
-	// are 4 files loaded?
-	if success == 4 {
-		return nil
-	}
-	if globalErr == nil {
-		return fmt.Errorf("Unknown mnist dataset error/bug")
-	}
-	return globalErr
-}
+	
+	
+	const tmpDirectory = `/tmp/mnist/`
 
-func init() {
-	var files = map[string]string{
-		inferDigImg: inferSetImg,
-		inferDigVal: inferSetVal,
-		trainDigImg: trainSetImg,
-		trainDigVal: trainSetVal,
+	var customDirectory = userHomeDir() + `/go/src/example.com/repo.git/classifier/datasets/mnist/`
+	var rootDirectory = userHomeDir() + `/classifier/datasets/mnist/`
+	var searchDirectories = []string{tmpDirectory, customDirectory, rootDirectory}
+
+	const inferSetImg = "t10k-images-idx3-ubyte.gz"
+	const inferSetVal = "t10k-labels-idx1-ubyte.gz"
+	const trainSetImg = "train-images-idx3-ubyte.gz"
+	const trainSetVal = "train-labels-idx1-ubyte.gz"
+	const inferDigImg = "8d422c7b0a1c1c79245a5bcf07fe86e33eeafee792b84584aec276f5a2dbc4e6"
+	const inferDigVal = "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+	const trainDigImg = "440fcabf73cc546fa21475e81ea370265605f56be210a4024d2ca8f203523609"
+	const trainDigVal = "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c"
+
+	var files_hsh = map[string]string{
+		inferSetImg: inferDigImg,
+		inferSetVal: inferDigVal,
+		trainSetImg: trainDigImg,
+		trainSetVal: trainDigVal,
+	}
+	var files_ord = []string{
+		inferSetImg,
+		inferSetVal,
+		trainSetImg,
+		trainSetVal,
 	}
 outer:
 	for _, dir := range searchDirectories {
-		for hash, name := range files {
+		for _, name := range files_ord {
+			hash := files_hsh[name]
 			if _, err := os.Stat(dir + name); err == nil {
 				f, err := os.Open(dir + name)
 				if err != nil {
-					globalErr = fmt.Errorf("Cannot open file to check file '%s': %e", dir+name, err)
+					globalErr = fmt.Errorf("Cannot open file to check file '%s': %v", dir+name, err)
 					continue outer
 				}
 				h := sha256.New()
 				_, err = io.Copy(h, f)
 				f.Close()
 				if err != nil {
-					globalErr = fmt.Errorf("Cannot copy file to hash file '%s': %e", dir+name, err)
+					globalErr = fmt.Errorf("Cannot copy file to hash file '%s': %v", dir+name, err)
 					continue outer
 				}
 				if fmt.Sprintf("%x", h.Sum(nil)) != hash {
@@ -150,13 +134,13 @@ outer:
 				}
 				f, err = os.Open(dir + name)
 				if err != nil {
-					globalErr = fmt.Errorf("Cannot open file to ungzip file '%s': err", dir+name, err)
+					globalErr = fmt.Errorf("Cannot open file to ungzip file '%s': %v", dir+name, err)
 					continue outer
 				}
 				gzipReader, err := gzip.NewReader(f)
 				if err != nil {
 					f.Close()
-					globalErr = fmt.Errorf("Gzip file '%s' Error: %e", dir+name, err)
+					globalErr = fmt.Errorf("Gzip file '%s' Error: %v", dir+name, err)
 					continue outer
 				}
 				var uncompressedBuffer bytes.Buffer
@@ -164,7 +148,7 @@ outer:
 				gzipReader.Close()
 				f.Close()
 				if err != nil {
-					globalErr = fmt.Errorf("Buffering file '%s' Error: %e", dir+name, err)
+					globalErr = fmt.Errorf("Buffering file '%s' Error: %v", dir+name, err)
 					continue outer
 				}
 
@@ -180,12 +164,12 @@ outer:
 
 					var numberImages = len(uncompressedData) / (ImgSize * ImgSize)
 
-					var set = make([][ImgSize * ImgSize]byte, numberImages, numberImages)
-					var smallSet = make([][SmallImgSize * SmallImgSize]byte, numberImages, numberImages)
+					var set = make([]Input, numberImages, numberImages)
+					var smallSet = make([]SmallInput, numberImages, numberImages)
 
 					for i := range set {
 						var ptr = (ImgSize * ImgSize) * i
-						copy(set[i][:], uncompressedData[ptr:])
+						copy(set[i].Image[:], uncompressedData[ptr:])
 
 						var small [SmallImgSize * SmallImgSize]byte
 						for y := 0; y < SmallImgSize; y++ {
@@ -199,7 +183,7 @@ outer:
 								)
 							}
 						}
-						copy(smallSet[i][:], small[:])
+						copy(smallSet[i].Image[:], small[:])
 					}
 
 					if isTrainFile {
@@ -212,14 +196,17 @@ outer:
 				} else {
 					// skip header
 					uncompressedData = uncompressedData[8:]
-
-					var set = uncompressedData
-
-					if isTrainFile {
-						TrainLabels = set
-					} else {
-						InferLabels = set
+					
+					for i, lbl := range uncompressedData {
+						if isTrainFile {
+							TrainSet[i].Label = lbl
+							SmallTrainSet[i].Label = lbl
+						} else {
+							InferSet[i].Label = lbl
+							SmallInferSet[i].Label = lbl
+						}
 					}
+
 				}
 
 				success++
@@ -228,10 +215,18 @@ outer:
 				globalErr = fmt.Errorf("File '%s' does not exist", dir+name)
 				continue outer
 			} else {
-				globalErr = fmt.Errorf("Error checking if file '%s' exists: %e", dir+name, err)
+				globalErr = fmt.Errorf("Error checking if file '%s' exists: %v", dir+name, err)
 				continue outer
 			}
 		}
 	}
 
+	if success != 4 {
+		if globalErr == nil {
+			return nil, nil, nil, nil, fmt.Errorf("Unknown mnist dataset error/bug")
+		}
+		return nil, nil, nil, nil, globalErr
+	}
+
+	return TrainSet, InferSet, SmallTrainSet, SmallInferSet, nil
 }

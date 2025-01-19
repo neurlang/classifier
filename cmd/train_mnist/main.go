@@ -1,6 +1,6 @@
 package main
 
-import "sync"
+import "sync/atomic"
 import "fmt"
 import "runtime"
 //import "math"
@@ -15,6 +15,7 @@ import "github.com/neurlang/classifier/layer/majpool2d"
 //import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
+import "github.com/neurlang/classifier/parallel"
 
 func error_abs(a, b uint32) uint32 {
 	if a > b {
@@ -32,25 +33,22 @@ func main() {
 
 	var improved_success_rate = 0
 
-	if err := mnist.Error(); err != nil {
+	_, _, dataslice, _, err := mnist.New()
+	if err != nil {
 		panic(err.Error())
 	}
 
-	const fanout1 = 3
-	const fanout2 = 5
-	const fanout3 = 3
-	const fanout4 = 5
-	//const fanout5 = 3
-	//const fanout6 = 5
+	const fanout1 = 1
+	const fanout2 = 7
+	const fanout3 = 1
+	const fanout4 = 7
 
 	var net feedforward.FeedforwardNetwork
-	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
-	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
 	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
-	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
-	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
-	net.NewLayer(1, 0)
+	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
+	net.NewLayer(1, 4)
 
 
 
@@ -59,25 +57,19 @@ func main() {
 		tally.Init()
 		tally.SetFinalization(false)
 
-		const group = 500
-		for j := 0; j < len(mnist.TrainLabels); j += group {
-			wg := sync.WaitGroup{}
-			for jj := 0; jj < group && jj+j < len(mnist.TrainLabels); jj++ {
-				wg.Add(1)
-				go func(jjj int) {
-					var input = mnist.SmallInput(mnist.SmallTrainSet[jjj])
-					var output = feedforward.SingleValue(mnist.TrainLabels[jjj]&1)
+		parallel.ForEach(len(dataslice), 1000, func(jjj int) {
+			{
+				var io = dataslice[jjj]
 
-					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
-						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
-					})
-					wg.Done()
-
-				}(jj + j)
-
+				net.Tally4(&io, worst, tally, func(actual uint32, expected uint32, mask uint32) uint32 {
+					//return error_abs(actual % 10, expected % 10)
+					if actual % 10 == expected % 10 {
+						return 0
+					}
+					return 1
+				})
 			}
-			wg.Wait()
-		}
+		})
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -120,22 +112,21 @@ func main() {
 		runtime.GC()
 	}
 	evaluate := func() {
-		var percent int
-		var errsum uint64
-		for j := range mnist.TrainLabels {
+		var percent, errsum atomic.Uint64
+		parallel.ForEach(len(dataslice), 1000, func(j int) {
 			{
-				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
-				var output = feedforward.SingleValue(mnist.TrainLabels[j]&1)
+				var io = dataslice[j]
 
-				var predicted = net.Infer(&input).Feature(0)
-				if predicted == output.Feature(0) {
-					percent++
+				var predicted = net.Infer2(&io)
+
+				if predicted%10 == io.Output()%net.GetClasses() {
+					percent.Add(1)
 				}
-				errsum += uint64(error_abs(predicted, output.Feature(0)))
+				errsum.Add(uint64(error_abs(uint32(predicted%10), uint32(io.Output()))))
 			}
-		}
-		success := percent * 100 / len(mnist.TrainLabels)
-		println("[success rate]", success, "%", "with", errsum, "errors")
+		})
+		success := 100 * int(percent.Load()) / len(dataslice)
+		println("[success rate]", success, "%", "with", errsum.Load(), "errors")
 
 		if dstmodel == nil || *dstmodel == "" {
 			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.zlib")

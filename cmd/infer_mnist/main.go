@@ -14,12 +14,11 @@ import "github.com/neurlang/classifier/datasets/mnist"
 //import "github.com/neurlang/classifier/learning"
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
-
 //import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
 
-func error_abs(a, b uint32) uint32 {
+func error_abs(a, b uint16) uint16 {
 	if a > b {
 		return a - b
 	}
@@ -33,62 +32,57 @@ func main() {
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
 
-	if err := mnist.Error(); err != nil {
+	_, _, trainslice, testslice, err := mnist.New()
+	if err != nil {
 		panic(err.Error())
 	}
 
-	const fanout1 = 3
-	const fanout2 = 5
-	const fanout3 = 3
-	const fanout4 = 5
-	//const fanout5 = 3
-	//const fanout6 = 5
+	const fanout1 = 1
+	const fanout2 = 7
+	const fanout3 = 1
+	const fanout4 = 7
 
 	var net feedforward.FeedforwardNetwork
-	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
-	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
 	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
-	net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
-	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
-	net.NewLayer(1, 0)
+	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
+	net.NewLayer(1, 4)
 
 
 	evaluate := func() {
 		var percent int
 		var errsum uint64
-		for j := range mnist.InferLabels {
+		for j := range testslice {
 			{
-				var input = mnist.SmallInput(mnist.SmallInferSet[j])
-				var output = feedforward.SingleValue(mnist.InferLabels[j] & 1)
+				var io = testslice[j]
 
-				var predicted = net.Infer(&input).Feature(0)
-				if predicted == output.Feature(0) {
+				var predicted = net.Infer2(&io) % 10
+				if predicted == io.Output()%net.GetClasses() {
 					percent++
 				}
-				errsum += uint64(error_abs(predicted, output.Feature(0)))
+				errsum += uint64(error_abs(predicted, io.Output()))
 			}
 		}
-		success := percent * 100 / len(mnist.InferLabels)
+		success := percent * 100 / len(testslice)
 		println("[infer success rate]", success, "%", "with", errsum, "errors")
 
 	}
 	evaluate2 := func() {
 		var percent int
 		var errsum uint64
-		for j := range mnist.TrainLabels {
+		for j := range trainslice {
 			{
-				var input = mnist.SmallInput(mnist.SmallTrainSet[j])
-				var output = feedforward.SingleValue(mnist.TrainLabels[j] & 1)
+				var io = trainslice[j]
 
-				var predicted = net.Infer(&input).Feature(0)
-				if predicted == output.Feature(0) {
+				var predicted = net.Infer2(&io) % 10
+				if predicted == io.Output()%net.GetClasses() {
 					percent++
 				}
-				errsum += uint64(error_abs(predicted, output.Feature(0)))
+				errsum += uint64(error_abs(predicted, io.Output()))
 			}
 		}
-		success := percent * 100 / len(mnist.TrainLabels)
+		success := percent * 100 / len(trainslice)
 		println("[train success rate]", success, "%", "with", errsum, "errors")
 
 	}

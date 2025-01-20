@@ -1,6 +1,7 @@
 package feedforward
 
-import rand "math/rand/v2"
+import rand "math/rand"
+//import "github.com/neurlang/classifier/hash"
 
 func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	o = make([]int, 0, f.LenLayers())
@@ -18,34 +19,71 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 		if i+1 < f.LenLayers() {
 			if i == 0 {
-				ii = rand.IntN(len(f.layers[i]))
-			} else {
-				ii %= len(f.layers[i])
+				ii = rand.Intn(len(f.layers[i]))
 			}
 		outer2:
-			for jjjj := 0; jjjj < len(f.layers[i])*len(f.layers[i]); jjjj++ {
+			// try the algorithm a few times, it's better to try and fail than to force an infinite loop
+			for try := 0; try < 10; try++ {
 
 				var combiner = f.combiners[i+1].Lay()
 
 				combiner.Put(ii, true)
+				
+				var position, count int
+				for j := 0; j < len(f.layers[i+2]); j++ {
+					if combiner.Feature(j) == 0 {
+						continue
+					}
+					position = j
+					count++
+					if count > 1 {
+						break
+					}
+				}
+				if count == 1 {
+					q := position
+					// Select a that neuron index in the current layer
+					o = append(o, base+ii)
+					//println(i, ii)
+					ii = q
+					break outer2
+				}
+				
+				
+				jjj := rand.Perm(len(f.layers[i]))
 
-				for jjj := 0; jjj < len(f.layers[i])*len(f.layers[i]); jjj++ {
-					jj := rand.IntN(len(f.layers[i]))
+				for _, jj := range jjj {
+					if ii == jj {continue;}
 
 					combiner.Put(jj, true)
-
-					for j := 0; j < len(f.layers[i+2])*len(f.layers[i+2]); j++ {
-						q := rand.IntN(len(f.layers[i+2]))
 					
-						if combiner.Feature(q) == 0 {
+					var words []int
+					for j := 0; j < len(f.layers[i+2]); j++ {
+						if combiner.Feature(j) == 0 {
 							continue
 						}
+						words = append(words, j)
+					}
+					
+					//for j := 0; j < len(f.layers[i+2]); j++ {
+					
+					rand.Shuffle(len(words), func(i, j int) {
+						words[i], words[j] = words[j], words[i]
+					})
+					
+					
+					for _, q := range words {
+					
+						f1 := combiner.Feature(q)
 
 						combiner.Put(ii, false)
+						
+						f2 := combiner.Feature(q)
 
-						if combiner.Feature(q) == 0 {
+						if  f1 & f2 == f2 && f1 | f2 == f1 {
 							// Select a that neuron index in the current layer
 							o = append(o, base+ii)
+							//println(i, ii)
 							ii = q
 							break outer2
 						}
@@ -53,9 +91,14 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 						combiner.Put(ii, true)
 
 					}
+					
+					//}
 
 				}
 			}
+		
+
+
 
 		} else if !reverse {
 			// Select last neuron

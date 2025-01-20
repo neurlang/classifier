@@ -32,17 +32,25 @@ func main() {
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
 
-	_, _, trainslice, testslice, err := mnist.New()
+	trainslice, testslice, _, _, err := mnist.New()
 	if err != nil {
 		panic(err.Error())
 	}
 
 	const fanout1 = 1
-	const fanout2 = 7
+	const fanout2 = 5
 	const fanout3 = 1
-	const fanout4 = 7
+	const fanout4 = 5
+	const fanout5 = 1
+	const fanout6 = 5
+	const fanout7 = 1
+	const fanout8 = 5
 
 	var net feedforward.FeedforwardNetwork
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout7*fanout8, 0, 1<<fanout8)
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout8, 1, fanout7, 1, fanout8, 1, 1, 0))
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1, 0))
 	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
 	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)

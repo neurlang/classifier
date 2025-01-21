@@ -44,9 +44,6 @@ func (h *Hasher) eat() {
 
 func (h *Hasher) MustPutUint16(n int, value uint16) {
 	block := n / 30
-	if block+1 < h.ate {
-		panic("already consumed block")
-	}
 	offset := (n % 30) * 2
 	position := n % 30
 	
@@ -90,9 +87,6 @@ func (h *Hasher) MustPutUint16(n int, value uint16) {
 
 func (h *Hasher) MustPutHash(n int, value [32]byte) {
 	block := n >> 1
-	if block+1 < h.ate {
-		panic("already consumed block")
-	}
 	offset := (n & 1) * 32
 
 	for i := 2; i < 30; i++ {

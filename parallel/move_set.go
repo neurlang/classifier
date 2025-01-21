@@ -1,3 +1,5 @@
+package parallel
+
 // MoveSet is a thread-safe set that tracks unique moves for a specific level.
 // When the level changes, all existing moves are cleared to prevent mixing moves from different levels.
 type MoveSet struct {

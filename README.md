@@ -1,6 +1,6 @@
 # Neurlang Binary Classifier (Hashtron)
 
-![Neurlang Binary Classifier](https://rawgithub.com/neurlang/classifier/master/classifier.svg)
+![Neurlang Binary Classifier](./classifier.svg)
 
 Neurlang Classifier is a machine learning algorithm designed for training binary classifiers of integers. It is particularly efficient for tasks where the input data consists of `uint32` integers. If your samples are larger than `uint32`, pre-hashing (e.g., using murmur hash) is recommended.
 

@@ -1,6 +1,8 @@
 # Neurlang Binary Classifier (Hashtron)
 
-Neurlang is a machine learning algorithm designed for training binary classifiers of integers. It is particularly efficient for tasks where the input data consists of `uint32` integers. If your samples are larger than `uint32`, pre-hashing (e.g., using murmur hash) is recommended.
+![Neurlang Binary Classifier](classifier.svg "Neurlang Binary Classifier")
+
+Neurlang Classifier is a machine learning algorithm designed for training binary classifiers of integers. It is particularly efficient for tasks where the input data consists of `uint32` integers. If your samples are larger than `uint32`, pre-hashing (e.g., using murmur hash) is recommended.
 
 ## Key Features
 
@@ -48,8 +50,8 @@ net.NewLayer(1, 0)
 
 ## Compatibility
 
-Neurlang is compatible with Go versions 1.13 and above. For CUDA-based learning, Go 1.16 with CUDA dependencies is required.
+Neurlang Classifier is compatible with Go versions 1.13 and above. For CUDA-based learning, Go 1.16 with CUDA dependencies is required.
 
 ## License
 
-Neurlang is licensed under Apache 2.0 or Public Domain, at your option.
+Neurlang Classifier is licensed under Apache 2.0 or Public Domain, at your option.

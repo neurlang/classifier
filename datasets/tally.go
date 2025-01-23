@@ -99,14 +99,7 @@ func (t *Tally) AddToMapAll(feature uint16, output uint64, loss func(n uint32) u
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
-	if !t.isFinalization {
-		for i := uint32(0); i < max; i++ {
-			err := uint64(loss(i))
-			t.mapping[feature][uint64(i)] += err * err
-		}
-	} else {
-		t.mapping[feature][output] ++
-	}
+	t.mapping[feature][output] ++
 	t.improvementPossible = true
 	t.mut.Unlock()
 }

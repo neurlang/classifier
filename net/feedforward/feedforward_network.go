@@ -146,6 +146,9 @@ func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
 		h, _ := hashtron.New(nil, bits)
 		layer[i] = *h
 	}
+	if bits == 0 {
+		bits = 1
+	}
 	f.layers = append(f.layers, layer)
 	f.mapping = append(f.mapping, bits)
 	f.combiners = append(f.combiners, nil)
@@ -257,14 +260,14 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		if f.premodulo[l] != 0 {
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
 		}
-		var val = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
+		var val = f.layers[l][0].Forward(in.Feature(0), false)
 		//println(in.Feature(0), "=>", val)
 		return SingleValue(val), false
 	} else {
 		if f.premodulo[l] != 0 {
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
 		}
-		var bit = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
+		var bit = f.layers[l][0].Forward(in.Feature(0), false)
 		return SingleValue(bit & 1), (bit & 1) != 0
 	}
 

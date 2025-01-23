@@ -100,6 +100,9 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 	if bits >= 64 {
 		bits = 0
 	}
+	if h.Bits < 64 && h.Bits > 0 {
+		bits = uint16(h.Bits)-1
+	}
 
 	var sols [][2]uint32
 	var maxl = modulo_t(len(d[0]))

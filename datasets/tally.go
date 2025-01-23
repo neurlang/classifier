@@ -134,14 +134,8 @@ func (t *Tally) Split() SplittedDataset {
 				break
 			}
 			for k2 := range freq {
-				if t.isFinalization {
-					if freq[k2] > freq[maxk] {
-						maxk = k2
-					}
-				} else {
-					if freq[k2] < freq[maxk] {
-						maxk = k2
-					}
+				if freq[k2] > freq[maxk] {
+					maxk = k2
 				}
 			}
 			mapp[k] = maxk

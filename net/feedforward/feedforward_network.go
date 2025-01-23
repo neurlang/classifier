@@ -258,6 +258,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
 		}
 		var val = f.layers[l][0].Forward(in.Feature(0), (0 == worst) && (neg == 1))
+		//println(in.Feature(0), "=>", val)
 		return SingleValue(val), false
 	} else {
 		if f.premodulo[l] != 0 {
@@ -343,6 +344,7 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 		})
 		return
 	}
+	
 	if len(f.mapping) > l && f.mapping[l] > 0 {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)
@@ -352,10 +354,8 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 			ifeature = uint16(hash.Hash(uint32(ifeature), 0, f.premodulo[l]))
 		}
 		//out, _ := f.Forward(in, l, -1, 0)
-
-		tally.AddToMapAll(ifeature, uint64(output.Feature(0)), func(n uint32) uint32 {
-			return loss(SingleValue(n))
-		}, uint32(1)<<f.mapping[l])
+		//println(ifeature, "->", output.Feature(0))
+		tally.AddToMapping(ifeature, uint64(output.Feature(0)))
 	} else {
 		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)

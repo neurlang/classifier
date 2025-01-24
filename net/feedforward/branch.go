@@ -17,7 +17,7 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 			continue
 		}
 
-		if i+1 < f.LenLayers() {
+		if i+2 < f.LenLayers() {
 			if i == 0 {
 				ii = rand.Intn(len(f.layers[i]))
 			}
@@ -102,7 +102,7 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 
 		} else if !reverse {
 			// Select last neuron
-			o = append(o, base)
+			o = append(o, base+ii)
 		}
 		// Update the base index to the start of the current layer
 		base += len(f.layers[i])

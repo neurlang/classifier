@@ -211,15 +211,22 @@ func (io infer2io) Disregard(int) bool {
 }
 
 // Infer2 infers the network output based on input, after being trained by using Tally4. This applies parity.
-func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) uint16 {
+func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val uint16) {
 	if input.Parity() == 0 {
-		return uint16(f.Infer(input).Feature(0))
+		ret := f.Infer(input)
+		for j := byte(0); j < 16 && j < f.GetLastCells(); j++ {
+			val |= uint16(ret.Feature(int(j))) << uint16(j)
+		}
+		return val
 	}
 	output := Intermediate(infer2io{io: input})
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
 		output, _ = f.Forward(output, l_prev, -1, 0)
 	}
-	return (uint16(output.Feature(0)) ^ input.Parity()) & uint16(uint16(1<<f.GetBits())-1)
+	for j := byte(0); j < 16 && j < f.GetLastCells(); j++ {
+		val |= uint16(output.Feature(int(j))) << uint16(j)
+	}
+	return (val ^ input.Parity()) & uint16(uint16(1<<f.GetBits())-1)
 }
 
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
@@ -288,10 +295,11 @@ func (io tally3io) Feature(n int) uint32 {
 
 type tally4io struct {
 	io FeedforwardNetworkParityInOutput
+	shift int
 }
 
-func (io tally4io) Feature(_ int) uint32 {
-	return uint32(io.io.Output()) ^ uint32(io.io.Parity())
+func (io tally4io) Feature(n int) uint32 {
+	return uint32(io.io.Output()) ^ uint32(io.io.Parity()) >> (n * io.shift)
 }
 
 // Tally3 tallies the network on ParityInOutput, tuning the worst-th hashtron
@@ -299,14 +307,6 @@ func (io tally4io) Feature(_ int) uint32 {
 // or an actual minus expected difference or any other loss (0 means correct).
 func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst int, tally *datasets.Tally,
 	loss func(actual, expected, mask uint32) uint32) {
-	if f.GetBits() <= 1 {
-		f.Tally(io, tally4io{io: io}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
-			return (i.Feature(0)^j.Feature(0))&1 != 0
-		})
-		return
-	}
-	mask := uint32(uint32(1<<f.GetBits()) - 1)
-	out := uint32(io.Output()^io.Parity()) & mask
 	if loss == nil {
 		loss = func(actual, expected, mask uint32) uint32 {
 			if actual >= expected {
@@ -315,7 +315,21 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 			return expected - actual
 		}
 	}
-	f.Tally2(io, tally4io{io: io}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
+	if f.GetBits() <= 1 {
+		f.Tally(io, tally4io{io: io, shift: 1}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+			var ifeat, jfeat uint32
+			for k := byte(0); k < f.GetLastCells(); k++ {
+				ifeat |= i.Feature(int(k))&1 << k
+				jfeat |= j.Feature(int(k))&1 << k
+			}
+			return loss(ifeat, jfeat, (1<<f.GetLastCells())-1) != 0
+			return false
+		})
+		return
+	}
+	mask := uint32(uint32(1<<f.GetBits()) - 1)
+	out := uint32(io.Output()^io.Parity()) & mask
+	f.Tally2(io, tally4io{io: io, shift: 0}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
 		ifm := (i.Feature(0)) & mask
 		return loss(ifm, out, mask)
 	})
@@ -466,6 +480,18 @@ func (f *FeedforwardNetwork) GetBits() (ret byte) {
 	ret = f.mapping[len(f.mapping)-1]
 	if ret == 0 {
 		ret = 1
+	}
+	return
+}
+
+// GetLastCells gets last cells
+func (f *FeedforwardNetwork) GetLastCells() (ret byte) {
+	if len(f.layers) == 0 {
+		return 0
+	}
+	ret = byte(len(f.layers[len(f.layers)-1]))
+	if ret == 0 && len(f.layers) >= 2 {
+		ret = byte(len(f.layers[len(f.layers)-2]))
 	}
 	return
 }

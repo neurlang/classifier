@@ -12,7 +12,9 @@ import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
-//import "github.com/neurlang/classifier/layer/full"
+//import "github.com/neurlang/classifier/layer/sochastic"
+//import "github.com/neurlang/classifier/layer/sum"
+import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
 import "github.com/neurlang/classifier/parallel"
@@ -27,36 +29,41 @@ func error_abs(a, b uint32) uint32 {
 func main() {
 
 	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
+	srcmodel := flag.String("srcmodel", "", "model source .json.lzw file")
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
 
 	var improved_success_rate = 0
+	
+	const classes = 10
 
 	dataslice, _, _, _, err := mnist.New()
 	if err != nil {
 		panic(err.Error())
 	}
+	
 
 	const fanout1 = 1
 	const fanout2 = 5
 	const fanout3 = 1
-	const fanout4 = 5
+	const fanout4 = 4
 	const fanout5 = 1
-	const fanout6 = 5
-	const fanout7 = 1
-	const fanout8 = 5
+	const fanout6 = 4
+	//const fanout7 = 1
+	//const fanout8 = 5
 
 	var net feedforward.FeedforwardNetwork
-	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout7*fanout8, 0, 1<<fanout8)
-	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout8, 1, fanout7, 1, fanout8, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
+	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout7*fanout8, 0, 1<<fanout8)
+	//net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout8, 1, fanout7, 1, fanout8, 1, 1, 0))
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<(fanout6*fanout6*2/3))
 	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<(fanout4*fanout4*2/3))
 	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
-	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
-	net.NewLayer(1, 4)
+	net.NewLayerP(fanout1*fanout2, 0, 1<<(fanout2*fanout2*2/3))
+	net.NewCombiner(full.MustNew(fanout2, 1, 1))
+	//net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
+	//net.NewLayerP(1, 4, 1<<16)
 
 
 	trainWorst := func(worst int) {
@@ -68,9 +75,9 @@ func main() {
 			{
 				var io = dataslice[jjj]
 
-				net.Tally4(&io, worst, tally, func(actual uint32, expected uint32, mask uint32) uint32 {
-					//return error_abs(actual % 10, expected % 10)
-					if actual % 10 == expected % 10 {
+				net.Tally4(&io, worst, tally, func(actual uint32, expected uint32, mask uint32) uint32 {				
+					//return error_abs(actual % classes, expected % classes)
+					if actual % classes == expected % classes {
 						return 0
 					}
 					return 1
@@ -105,7 +112,7 @@ func main() {
 		
 		//h.AvxLanes = 16
 		//h.AvxSkip = 4
-
+		
 		fmt.Println("hashtron position:", worst, "(job size:", tally.Len(), ")")
 
 		htron, err := h.Training(tally)
@@ -124,12 +131,12 @@ func main() {
 			{
 				var io = dataslice[j]
 
-				var predicted = net.Infer2(&io)
-
-				if predicted%10 == io.Output()%net.GetClasses() {
+				var predicted = net.Infer2(&io) % classes
+				//println(predicted, io.Output())
+				if predicted == io.Output()%net.GetClasses() {
 					percent.Add(1)
 				}
-				errsum.Add(uint64(error_abs(uint32(predicted%10), uint32(io.Output()))))
+				errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
 			}
 		})
 		success := 100 * int(percent.Load()) / len(dataslice)
@@ -159,6 +166,9 @@ func main() {
 	}
 	if resume != nil && *resume && dstmodel != nil {
 		net.ReadZlibWeightsFromFile(*dstmodel)
+	}
+	if resume != nil && *resume && srcmodel != nil {
+		net.ReadZlibWeightsFromFile(*srcmodel)
 	}
 	for {
 		shuf := net.Branch(false)

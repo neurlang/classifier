@@ -455,11 +455,15 @@ func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
-		ifeature := uint16(in.Feature(0))
+		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
-			ifeature = uint16(hash.Hash(uint32(ifeature), 0, f.premodulo[l]))
+			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
-		tally.AddToMapping(ifeature, uint64(output.Feature(0)))
+		if f.GetBits() == 1 {
+			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, true)
+		} else {
+			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))
+		}
 	} else {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
 			in, _ = f.Forward(in, l_prev, -1, 0)

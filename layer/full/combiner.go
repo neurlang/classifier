@@ -9,6 +9,9 @@ func (f *Full) Put(n int, v bool) {
 // its inputs using this method for hashtron n in the next layer.
 func (f *Full) Feature(n int) (o uint32) {
 	n *= int(f.bits)
+	if n + int(f.maxbits) > len(f.vec) {
+		return 0
+	}
 	for pos := n; pos < n+int(f.maxbits) && pos < len(f.vec); pos++ {
 		o <<= 1
 		if f.vec[pos] {

@@ -1,7 +1,7 @@
 package main
 
 import "os"
-import "sync"
+import "sync/atomic"
 import "fmt"
 import "runtime"
 import "flag"
@@ -11,6 +11,7 @@ import "github.com/neurlang/classifier/layer/majpool2d"
 import "github.com/neurlang/classifier/datasets"
 import "github.com/neurlang/classifier/learning"
 import "github.com/neurlang/classifier/net/feedforward"
+import "github.com/neurlang/classifier/parallel"
 
 func error_abs(a, b uint32) uint32 {
 	if a > b {
@@ -33,23 +34,34 @@ func main() {
 		return
 	}
 
-	datakeys, datavalues := phonemizer.Split(phonemizer.NewDataset(*cleantsv))
+	data := phonemizer.Split(phonemizer.NewDataset(*cleantsv))
 
-	if len(datakeys) == 0 && len(datavalues) == 0 {
+	if len(data) == 0 {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
 		return
 	}
+	
+	const fanout0 = 5
+	const fanout1 = 1
+	const fanout2 = 5
+	const fanout3 = 1
+	const fanout4 = 5
+	//const fanout5 = 1
+	//const fanout6 = 4
+	//const fanout7 = 1
+	//const fanout8 = 5
 
-	const fanout1 = 3
-	const fanout2 = 12
-	//const fanout3 = 3
-	//const fanout4 = 10
 	var net feedforward.FeedforwardNetwork
-	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1033)
-	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1))
-	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
-	net.NewCombiner(majpool2d.MustNew(fanout2, 1, fanout1, 1, fanout2, 1, 1))
-	net.NewLayer(1, 0)
+	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout7*fanout8, 0, 1<<fanout8)
+	//net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout8, 1, fanout7, 1, fanout8, 1, 1, 0))
+	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<(fanout6*fanout6*2/3))
+	//net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1, 0))
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<(fanout4*fanout4*2/3))
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
+	net.NewLayerP(fanout1*fanout2, 0, 1<<(fanout2*fanout2*2/3))
+	//net.NewCombiner(full.MustNew(fanout2, 1, 1))
+	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
+	net.NewLayerP(1, 0, 1<<(fanout0))
 
 
 
@@ -58,25 +70,13 @@ func main() {
 		tally.Init()
 		tally.SetFinalization(false)
 
-		const group = 500
-		for j := 0; j < len(datakeys); j += group {
-			wg := sync.WaitGroup{}
-			for jj := 0; jj < group && jj+j < len(datakeys); jj++ {
-				wg.Add(1)
-				go func(jjj int) {
-					var input = phonemizer.Sample(datakeys[jjj])
-					var output = phonemizer.Output(datavalues[jjj])
+		parallel.ForEach(len(data), 1000, func(jjj int) {
+			{
+					var io = data[jjj]
 
-					net.Tally2(&input, &output, worst, tally, func(i feedforward.FeedforwardNetworkInput) uint32 {
-						return error_abs(i.Feature(0), output.Feature(0)) //< error_abs(j.Feature(0), output.Feature(0))
-					})
-					wg.Done()
-
-				}(jj + j)
-
+					net.Tally4(&io, worst, tally, nil)
 			}
-			wg.Wait()
-		}
+		})
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -119,25 +119,23 @@ func main() {
 		runtime.GC()
 	}
 	evaluate := func() {
-		var percent int
-		var errsum uint64
-		for j := range datakeys {
+		var percent, errsum atomic.Uint64
+		parallel.ForEach(len(data), 1000, func(j int) {
 			{
-				var input = phonemizer.Sample(datakeys[j])
-				var output = phonemizer.Output(datavalues[j])
+				var io = data[j]
 
-				var predicted = net.Infer(&input).Feature(0)
-				if predicted == output.Feature(0) {
-					percent++
+				var predicted = net.Infer2(&io) & 1
+				if predicted == io.Output() {
+					percent.Add(1)
 				}
-				errsum += uint64(error_abs(predicted, output.Feature(0)))
+				errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
 			}
-		}
-		success := percent * 100 / len(datakeys)
-		println("[success rate]", success, "%", "with", errsum, "errors")
+		})
+		success := 100 * int(percent.Load()) / len(data)
+		println("[success rate]", success, "%", "with", errsum.Load(), "errors")
 
-		if dstmodel == nil {
-			err := net.WriteCompressedWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
+		if dstmodel == nil || *dstmodel == "" {
+			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
 			if err != nil {
 				println(err.Error())
 			}
@@ -145,7 +143,7 @@ func main() {
 
 		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
 			if improved_success_rate > 0 {
-				err := net.WriteCompressedWeightsToFile(*dstmodel)
+				err := net.WriteZlibWeightsToFile(*dstmodel)
 				if err != nil {
 					println(err.Error())
 				}
@@ -161,13 +159,14 @@ func main() {
 	if resume != nil && *resume && dstmodel != nil {
 		net.ReadCompressedWeightsFromFile(*dstmodel)
 	}
+
 	for {
-		shuf := net.Shuffle(true)
+		shuf := net.Branch(false)
 		evaluate()
 		for worst := 0; worst < len(shuf); worst++ {
 			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 			trainWorst(shuf[worst])
-			if worst == 0 {
+			if worst == len(shuf)-2 {
 				evaluate()
 			}
 		}

@@ -179,8 +179,8 @@ func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 }
 
 // Infer3 infers the network output based on input, after being trained by using Tally3
-func (f FeedforwardNetwork) Infer3(input FeedforwardNetworkParityInput) (ouput FeedforwardNetworkInput) {
-	in := f.Infer(FeedforwardNetworkInput(input))
+func (f FeedforwardNetwork) infer3(input FeedforwardNetworkParityInput) (ouput FeedforwardNetworkInput) {
+	in := f.infer(FeedforwardNetworkInput(input))
 	if input.Parity() {
 		return tally3io{
 			par: input,
@@ -213,7 +213,7 @@ func (io infer2io) Disregard(int) bool {
 // Infer2 infers the network output based on input, after being trained by using Tally4. This applies parity.
 func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val uint16) {
 	if input.Parity() == 0 {
-		ret := f.Infer(input)
+		ret := f.infer(input)
 		for j := byte(0); j < 16 && j < f.GetLastCells(); j++ {
 			val |= uint16(ret.Feature(int(j))) << uint16(j)
 		}
@@ -230,7 +230,7 @@ func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val 
 }
 
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
-func (f FeedforwardNetwork) Infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
+func (f FeedforwardNetwork) infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
 	ouput = in
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
 		ouput, _ = f.Forward(ouput, l_prev, -1, 0)
@@ -316,7 +316,7 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 		}
 	}
 	if f.GetBits() <= 1 {
-		f.Tally(io, tally4io{io: io, shift: 1}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+		f.tally(io, tally4io{io: io, shift: 1}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			var ifeat, jfeat uint32
 			for k := byte(0); k < f.GetLastCells(); k++ {
 				ifeat |= i.Feature(int(k))&1 << k
@@ -329,7 +329,7 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 	}
 	mask := uint32(uint32(1<<f.GetBits()) - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
-	f.Tally2(io, tally4io{io: io, shift: 0}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
+	f.tally2(io, tally4io{io: io, shift: 0}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
 		ifm := (i.Feature(0)) & mask
 		return loss(ifm, out, mask)
 	})
@@ -337,7 +337,7 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 
 // Tally3 tallies the network like Tally2, except it can also balance the dataset using input parity bit.
 // Loss is 0 if the output is correct, below or equal to maxloss otherwise.
-func (f *FeedforwardNetwork) Tally3(in FeedforwardNetworkParityInput, output FeedforwardNetworkInput,
+func (f *FeedforwardNetwork) tally3(in FeedforwardNetworkParityInput, output FeedforwardNetworkInput,
 	worst int, tally *datasets.Tally, loss func(i FeedforwardNetworkInput) uint32) {
 	if in.Parity() {
 		output = tally3io{
@@ -345,18 +345,18 @@ func (f *FeedforwardNetwork) Tally3(in FeedforwardNetworkParityInput, output Fee
 			out: output,
 		}
 	}
-	f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+	f.tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 		return loss(i) < loss(j)
 	})
 }
 
 // Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the
 // output is correct, below or equal to maxloss otherwise.
-func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally,
+func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally,
 	loss func(i FeedforwardNetworkInput) uint32) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
-		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+		f.tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)
 		})
 		return
@@ -374,7 +374,7 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 		//println(ifeature, "->", output.Feature(0))
 		tally.AddToMapping(ifeature, uint64(output.Feature(0)))
 	} else {
-		f.Tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
+		f.tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)
 		})
 		return
@@ -384,7 +384,7 @@ func (f *FeedforwardNetwork) Tally2(in, output FeedforwardNetworkInput, worst in
 // Tally tallies the network on input/output pair with respect to to-be-trained worst hashtron.
 // The tally is stored into thread safe structure Tally. Two ouputs i, j can be compared to be less
 // worse using the function less (returning true if output i is less worse than output j).
-func (f *FeedforwardNetwork) Tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
+func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var predicted [2]FeedforwardNetworkInput

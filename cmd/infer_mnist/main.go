@@ -80,7 +80,7 @@ func main() {
 			}
 		})
 		success := int(percent.Load()) * 100 / len(testslice)
-		println("[infer success rate]", success, "%", "with", errsum.Load(), "errors")
+		println("[MNIST infer success rate]", success, "%", "with", errsum.Load(), "errors")
 
 	}
 	evaluate2 := func() {
@@ -99,7 +99,7 @@ func main() {
 			}
 		})
 		success := int(percent.Load()) * 100 / len(trainslice)
-		println("[train success rate]", success, "%", "with", errsum.Load(), "errors")
+		println("[MNIST train success rate]", success, "%", "with", errsum.Load(), "errors")
 
 	}
 	if resume != nil && *resume && dstmodel != nil {

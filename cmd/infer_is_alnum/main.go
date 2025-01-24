@@ -50,7 +50,7 @@ func main() {
 			}
 		})
 		success := int(percent.Load()) * 100 / dataset.Len()
-		println("[success rate]", success, "%", "with", errsum.Load(), "errors")
+		println("[IsAlnum success rate]", success, "%", "with", errsum.Load(), "errors")
 
 	}
 	if resume != nil && *resume && dstmodel != nil {

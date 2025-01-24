@@ -68,7 +68,7 @@ func main() {
 			}
 		})
 		success := 100 * int(percent.Load()) / len(dataset)
-		println("[infer success rate]", success, "%", "with", errsum.Load(), "errors")
+		println("[SquareRoot success rate]", success, "%", "with", errsum.Load(), "errors")
 
 	}
 

@@ -40,11 +40,10 @@ func main() {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
 		return
 	}
-	
-	const fanout0 = 5
+
 	const fanout1 = 1
 	const fanout2 = 5
-	const fanout3 = 1
+	const fanout3 = 3
 	const fanout4 = 5
 	//const fanout5 = 1
 	//const fanout6 = 4
@@ -56,12 +55,12 @@ func main() {
 	//net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6*fanout8, 1, fanout7, 1, fanout8, 1, 1, 0))
 	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<(fanout6*fanout6*2/3))
 	//net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<(fanout4*fanout4*2/3))
+	net.NewLayer(fanout1*fanout2*fanout3*fanout4, 0)
 	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2, 0, 1<<(fanout2*fanout2*2/3))
+	net.NewLayer(fanout1*fanout2, 0)
 	//net.NewCombiner(full.MustNew(fanout2, 1, 1))
 	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
-	net.NewLayerP(1, 0, 1<<(fanout0))
+	net.NewLayer(1, 0)
 
 
 

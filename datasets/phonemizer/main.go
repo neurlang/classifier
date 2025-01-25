@@ -21,21 +21,33 @@ type NewSample struct {
 	J int
 }
 
-func (s *NewSample) Feature(n int) uint32 {
-	if n == 0 {
-		return hash.StringHash(0, s.Option) ^ hash.StringsHash(0, s.SrcA)
+func hashSampler(v []string, m int, n uint32) string {
+	return v[hash.Hash(uint32(m), n, uint32(len(v)))]
+}
+func pad0Sampler(v []string, n int, opt string) string {
+	n %= len(v)+1
+	if n == len(v) {
+		return opt + "\x00"
 	}
-	srcFut := []string(s.SrcFut)
-	srcFut = append(srcFut, s.Option)
-	srcCut := []string(s.SrcCut)
-	srcCut = append(srcCut, s.Option)
-	dstA := []string(s.DstA)
-	dstA = append(dstA, s.Option)
-	switch n & 3 {
-	case 1: return hash.StringHash(uint32(n), s.SrcA[(n >> 2) % len(s.SrcA)])
-	case 2: return hash.StringHash(uint32(n), dstA[(len(dstA) - 1 + (n >> 2)) % len(dstA)])
-	case 3: return hash.StringHash(uint32(n), srcCut[(len(srcCut) - 1 + (n >> 2)) % len(srcCut)])
-	case 0:	return hash.StringHash(uint32(n), srcFut[(len(srcFut) - 1 + (n >> 2)) % len(srcFut)])
+	return v[n]
+}
+func pad0RevSampler(v []string, n int, opt string) string {
+	n %= len(v)+1
+	if n == 0 {
+		return opt + "\x00"
+	}
+	n--
+	return v[len(v)-n-1]
+}
+
+func (s *NewSample) Feature(n int) uint32 {
+	h := hash.StringHash(uint32(n), s.Option)
+	switch n % 5 {
+	case 0: return hash.StringHash(uint32(n), hashSampler(s.SrcA, (n / 5), h))
+	case 1: return hash.StringHash(h, pad0RevSampler(s.SrcCut, n / 5, s.Option)) // 67, 91
+	case 2: return hash.StringHash(uint32(n), pad0Sampler(s.DstA, n / 5, s.Option))
+	case 3: return hash.StringHash(uint32(n), pad0Sampler(s.SrcA, n / 5, s.Option)) //
+	case 4:	return hash.StringHash(h, pad0Sampler(s.SrcFut, n / 5, s.Option)) // 70, 91
 	}
 /*
 	n %= len(s.SrcA) + len(s.DstA) + len(s.SrcCut) + len(s.SrcFut)
@@ -207,7 +219,7 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 				continue
 			}
 			for option := range multiway[srcv] {
-			
+				// NOTE: Also look below
 				if option != dsta[i] {
 					j := len(srca) - i
 					s := &NewSample{

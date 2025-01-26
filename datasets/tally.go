@@ -48,6 +48,8 @@ func (t *Tally) SetFinalization(final bool) {
 
 // GetImprovementPossible reads improvementPossible
 func (t *Tally) GetImprovementPossible() bool {
+	t.mut.Lock()
+	defer t.mut.Unlock()
 	return t.improvementPossible
 }
 // Len estimates the size of tally
@@ -73,6 +75,7 @@ func (t *Tally) AddToImprove(feature uint32, vote int8) {
 		if t.improve[feature] == 0 {
 			delete(t.improve, feature)
 		}
+		t.improvementPossible = true
 	}
 	t.mut.Unlock()
 }

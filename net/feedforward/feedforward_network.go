@@ -460,7 +460,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
 		if f.GetBits() == 1 {
-			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, true)
+			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
+			changed := actual != (output.Feature(0)&1 != 0)
+			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 		} else {
 			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))
 		}
@@ -472,7 +474,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
-		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, true)
+		_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
+		changed := actual != (output.Feature(0)&1 != 0)
+		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 	}
 }
 

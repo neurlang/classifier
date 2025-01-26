@@ -64,10 +64,10 @@ func main() {
 
 
 
-	trainWorst := func(worst int) {
+	trainWorst := func(worst int) bool {
 		var tally = new(datasets.Tally)
 		tally.Init()
-		tally.SetFinalization(false)
+		tally.SetFinalization(true)
 
 		parallel.ForEach(len(data), 1000, func(jjj int) {
 			{
@@ -76,6 +76,10 @@ func main() {
 					net.Tally4(&io, worst, tally, nil)
 			}
 		})
+		
+		if !tally.GetImprovementPossible() {
+			return false
+		}
 
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
@@ -116,14 +120,20 @@ func main() {
 
 		tally.Free()
 		runtime.GC()
+		
+		return true
 	}
-	evaluate := func() {
+	evaluate := func() (int, [32]byte) {
+		var h = parallel.NewUint16Hasher(len(data))
 		var percent, errsum atomic.Uint64
 		parallel.ForEach(len(data), 1000, func(j int) {
 			{
 				var io = data[j]
 
 				var predicted = net.Infer2(&io) & 1
+				
+				h.MustPutUint16(j, predicted)
+				
 				if predicted == io.Output() {
 					percent.Add(1)
 				}
@@ -154,6 +164,7 @@ func main() {
 			println("Max accuracy or wrong data. Exiting")
 			os.Exit(0)
 		}
+		return success, h.Sum()
 	}
 	if resume != nil && *resume && dstmodel != nil {
 		err := net.ReadZlibWeightsFromFile(*dstmodel)
@@ -161,17 +172,30 @@ func main() {
 			println(err.Error())
 		}
 	}
-
-	for {
+	var m = parallel.NewMoveSet()
+	var success, state = evaluate()
+	fmt.Printf("%x\n", state)
+	for infloop := 0; infloop < net.Len(); infloop++ {
 		shuf := net.Branch(false)
-		evaluate()
+		if m.Exists(state, shuf[0], byte(success)) {
+			continue
+		}
 		for worst := 0; worst < len(shuf); worst++ {
 			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
-			trainWorst(shuf[worst])
-			if worst == len(shuf)-2 {
-				evaluate()
+			if trainWorst(shuf[worst]) {
+				infloop = 0
+				success, state = evaluate()
+			} else if worst == 0 {
+				break
+			}
+			fmt.Printf("%x\n", state)
+			m.Insert(state, shuf[worst], byte(success))
+			if worst != len(shuf)-1 {
+				if m.Exists(state, shuf[worst+1], byte(success)) {
+					break
+				}
 			}
 		}
 	}
-
+	println("Infinite loop - algorithm stuck in local minima. Exiting")
 }

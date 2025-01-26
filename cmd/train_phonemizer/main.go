@@ -156,7 +156,10 @@ func main() {
 		}
 	}
 	if resume != nil && *resume && dstmodel != nil {
-		net.ReadCompressedWeightsFromFile(*dstmodel)
+		err := net.ReadZlibWeightsFromFile(*dstmodel)
+		if err != nil {
+			println(err.Error())
+		}
 	}
 
 	for {

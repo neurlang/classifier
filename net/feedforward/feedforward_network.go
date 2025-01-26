@@ -226,7 +226,7 @@ func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val 
 	for j := byte(0); j < 16 && j < f.GetLastCells(); j++ {
 		val |= uint16(output.Feature(int(j))) << uint16(j)
 	}
-	return (val ^ input.Parity()) & uint16(uint16(1<<f.GetBits())-1)
+	return (val ^ input.Parity())
 }
 
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
@@ -506,5 +506,10 @@ func (f *FeedforwardNetwork) GetLastCells() (ret byte) {
 
 // GetBits reports the number of classes predicted by this network
 func (f *FeedforwardNetwork) GetClasses() (ret uint16) {
-	return uint16(1 << f.GetBits())
+	ret = uint16(1 << f.GetBits())
+	ret2 := uint16(1 << f.GetLastCells())
+	if ret2 > ret {
+		return ret2
+	}
+	return
 }

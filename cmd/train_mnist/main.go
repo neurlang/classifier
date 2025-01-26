@@ -28,8 +28,8 @@ func error_abs(a, b uint32) uint32 {
 
 func main() {
 
-	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
-	srcmodel := flag.String("srcmodel", "", "model source .json.lzw file")
+	dstmodel := flag.String("dstmodel", "", "model destination .json.zlib file")
+	srcmodel := flag.String("srcmodel", "", "model source .json.zlib file")
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()

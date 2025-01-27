@@ -299,7 +299,7 @@ type tally4io struct {
 }
 
 func (io tally4io) Feature(n int) uint32 {
-	return uint32(io.io.Output()) ^ uint32(io.io.Parity()) >> (n * io.shift)
+	return (uint32(io.io.Output()) ^ uint32(io.io.Parity())) >> (n * io.shift)
 }
 
 // Tally3 tallies the network on ParityInOutput, tuning the worst-th hashtron
@@ -323,7 +323,6 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 				jfeat |= j.Feature(int(k))&1 << k
 			}
 			return loss(ifeat, jfeat, (1<<f.GetLastCells())-1) != 0
-			return false
 		})
 		return
 	}

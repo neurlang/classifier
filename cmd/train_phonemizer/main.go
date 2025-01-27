@@ -64,7 +64,7 @@ func main() {
 
 
 
-	trainWorst := func(worst int) bool {
+	trainWorst := func(worst int) func() {
 		var tally = new(datasets.Tally)
 		tally.Init()
 		tally.SetFinalization(true)
@@ -78,7 +78,7 @@ func main() {
 		})
 		
 		if !tally.GetImprovementPossible() {
-			return false
+			return nil
 		}
 
 		var h learning.HyperParameters
@@ -116,12 +116,15 @@ func main() {
 			panic(err.Error())
 		}
 		ptr := net.GetHashtron(worst)
+		var backup = *ptr
 		*ptr = *htron
 
 		tally.Free()
 		runtime.GC()
-		
-		return true
+
+		return func(){
+			*ptr = backup
+		}
 	}
 	evaluate := func() (int, [32]byte) {
 		var h = parallel.NewUint16Hasher(len(data))
@@ -174,28 +177,45 @@ func main() {
 	}
 	var m = parallel.NewMoveSet()
 	var success, state = evaluate()
+	var default_backoff = func() {
+		println("Infinite loop - algorithm stuck in local minimum. Exiting")
+		os.Exit(0)
+	}
+	backoff := default_backoff
+	var local_minimums = make(map[[32]byte]struct{})
 	fmt.Printf("%x\n", state)
-	for infloop := 0; infloop < net.Len(); infloop++ {
-		shuf := net.Branch(false)
-		if m.Exists(state, shuf[0], byte(success)) {
-			continue
-		}
-		for worst := 0; worst < len(shuf); worst++ {
-			println("training #", worst, "hastron of", len(shuf), "hashtrons total")
-			if trainWorst(shuf[worst]) {
-				infloop = 0
-				success, state = evaluate()
-			} else if worst == 0 {
-				break
+	for {
+		for infloop := 0; infloop < net.Len(); infloop++ {
+			shuf := net.Branch(false)
+			if m.Exists(state, shuf[0], byte(success)) {
+				continue
 			}
-			fmt.Printf("%x\n", state)
-			m.Insert(state, shuf[worst], byte(success))
-			if worst != len(shuf)-1 {
-				if m.Exists(state, shuf[worst+1], byte(success)) {
+			for worst := 0; worst < len(shuf); worst++ {
+				println("training #", worst, "hastron of", len(shuf), "hashtrons total")
+				if this_backoff := trainWorst(shuf[worst]); this_backoff != nil {
+					infloop = 0
+					this_success, this_state := evaluate()
+					if _, bad := local_minimums[this_state]; bad {
+						this_backoff()
+						break
+					} else {
+						backoff, success, state = this_backoff, this_success, this_state
+					}
+				} else if worst == 0 {
 					break
+				}
+				fmt.Printf("%x\n", state)
+				m.Insert(state, shuf[worst], byte(success))
+				if worst != len(shuf)-1 {
+					if m.Exists(state, shuf[worst+1], byte(success)) {
+						break
+					}
 				}
 			}
 		}
+		local_minimums[state] = struct{}{}
+		backoff()
+		backoff = default_backoff
+		success, state = evaluate()
 	}
-	println("Infinite loop - algorithm stuck in local minima. Exiting")
 }

@@ -3,6 +3,7 @@ package parallel
 import "sync"
 
 // ForEach executes a for loop with a limited number of concurrent goroutines.
+// Each goroutine processes one integer, from 0 to length.
 func ForEach(length, limit int, body func(i int)) {
 	if limit <= 0 {
 		limit = 1 // Default to 1 if limit is zero or negative

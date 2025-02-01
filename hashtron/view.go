@@ -92,6 +92,7 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 		return err
 	}
 	var xor uint32
+	var sub uint32
 	for i, v := range h.program {
 		if i != 0 {
 			_, err = b.Write(comm)
@@ -111,7 +112,13 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 		if err != nil {
 			return err
 		}
-		_, err = b.Write(intToBuf(v[1]))
+		if sub == 0 {
+			_, err = b.Write(intToBuf(v[1]))
+			sub = v[1]
+		} else {
+			if (sub < v[1]) {panic("fu");}
+			_, err = b.Write(intToBuf(sub - v[1]))
+		}
 		if err != nil {
 			return err
 		}
@@ -124,6 +131,7 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 			return err
 		}
 		xor = v[0]
+		sub = v[1]
 	}
 	_, err = b.Write(clos)
 	if err != nil {
@@ -138,7 +146,7 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 
 // ReadJson deserializes hashtron from a pre-xorred json io.Reader
 func (h *Hashtron) ReadJson(b io.Reader) error {
-	var number, number0, number1, xor uint32
+	var number, number0, number1, xor, add uint32
 	var buf [1]byte
 	var inside bool
 	h.program = nil
@@ -156,7 +164,12 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			number += uint32(buf[0] - '0')
 		case ']':
 			if !inside {
-				h.program = append(h.program, [2]uint32{number0 ^ xor, number1})
+				if add == 0 {
+					add = number1
+				} else {
+					add -= number1
+				}
+				h.program = append(h.program, [2]uint32{number0 ^ xor, add})
 				return nil
 			}
 			inside = false
@@ -164,7 +177,12 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			number = 0
 		case ',':
 			if !inside {
-				h.program = append(h.program, [2]uint32{number0 ^ xor, number1})
+				if add == 0 {
+					add = number1
+				} else {
+					add -= number1
+				}
+				h.program = append(h.program, [2]uint32{number0 ^ xor, add})
 				xor ^= number0
 			} else {
 				number0 = number

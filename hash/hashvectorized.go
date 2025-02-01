@@ -6,13 +6,23 @@ func init() {
 	// Check if the CPU supports AVX512
 	if cpuid.CPU.Supports(cpuid.AVX512F, cpuid.AVX512DQ) {
 		HashVectorized = hashAVX512Vectorized
+		hashVectorizedParallelism = 16
 	} else {
 		HashVectorized = hashNotVectorized
+		hashVectorizedParallelism = 1
 	}
 }
 
 // HashVectorized implement many Neurlang hashes in parallel, using something like AVX-512 or similar
 var HashVectorized func(out []uint32, n []uint32, s []uint32, max uint32)
+
+var hashVectorizedParallelism int
+
+// HashVectorizedParallelism reports the recommended number of hashes to compute in parallel on this platform
+// Can't return 0.
+func HashVectorizedParallelism() int {
+	return hashVectorizedParallelism
+}
 
 func hashNotVectorized(out []uint32, n []uint32, s []uint32, max uint32) {
 	for i := range out {

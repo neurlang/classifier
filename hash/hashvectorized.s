@@ -1,3 +1,5 @@
+//go:build !noasm && amd64
+
 #include "textflag.h"
 
 

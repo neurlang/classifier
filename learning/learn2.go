@@ -78,7 +78,7 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 	boost()
 	var orig_alpha = alphabet
 	var center uint32 = 0
-	for u := uint32(9); u > 0; u-- {
+	for u := uint32(h.DeadlineRetry); u > 0; u-- {
 		alphabet = orig_alpha
 		var maxl = uint32(len(alphabet[0]))
 		if len(alphabet[1]) > len(alphabet[0]) {
@@ -112,7 +112,7 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 					return
 				}
 
-				if true {
+				{
 
 					// linearly boosted loop
 					var size = 0
@@ -120,7 +120,6 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 					if par < avx.ScatterGatherVectorizedParallelism() {
 						par = avx.ScatterGatherVectorizedParallelism()
 					}
-					par = 1
 					var vals = make([]uint32, par, par)
 					var salts = make([]uint32, par, par)
 					for i := range salts {
@@ -209,7 +208,7 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 					// unstucker
 					maxmax = maxx
 					maxx *= u
-					maxx /= 10
+					maxx /= uint32(h.DeadlineRetry + 1)
 					if maxx == 0 {
 						break
 					}

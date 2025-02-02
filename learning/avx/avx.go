@@ -5,7 +5,7 @@ import "github.com/klauspost/cpuid/v2"
 
 func init() {
 	// Check if the CPU supports AVX512
-	if cpuid.CPU.Supports(cpuid.AVX512F, cpuid.AVX512DQ) {
+	if cpuid.CPU.Supports(cpuid.AVX512F, cpuid.AVX512DQ, cpuid.AVX512CD) {
 		ScatterGatherVectorized = scatterGatherAVX512Vectorized
 		scatterGatherVectorizedParallelism = 16
 	} else {

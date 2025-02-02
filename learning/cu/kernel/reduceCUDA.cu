@@ -77,6 +77,7 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 			uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
 			uint32_t i = 0;
 			uint32_t v = alphabet[i];
+			uint32_t size = 0;
 			for (uint32_t j = 0; j < 2 * maxl; j++) {
 				i = hash(v, center^s, max);
 				v = alphabet[(j & 1) * maxl + uint32_t(((uint64_t)((i + 1) * maxl_recip) * uint64_t(maxl)) >> 32)];
@@ -86,8 +87,16 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 					if ((set[imodmax >> 2] >> ((imodmax & 3) << 1)) & 3 == ((j ^ 1) & 1) + 1) {
 						goto next_iteration;
 					}
+				} else {
+					size++;
 				}
 				set[imodmax >> 2] |= (j & 1) + 1 << ((imodmax & 3) << 1);
+			}
+			if (atomicAdd(&exitFlag, 0) > myFlag) {
+				return;
+			}
+			if (size == 2*maxl) {
+				goto next_iteration;
 			}
 			if (atomicAdd(&exitFlag, 0) > myFlag) {
 				return;

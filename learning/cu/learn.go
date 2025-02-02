@@ -152,21 +152,13 @@ looop:
 		}
 		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
 		var sol [2]uint32
-		if maxl == 1 {
-			sol = h.Reduce1(&alphabet2)
-		} else if maxl == 2 {
-			sol = h.Reduce2(&alphabet2)
-		} else if maxl < h.CuCutoff {
-			switch needCuda() {
-			case 1:
-				return h.InitialLimit, nil
-			case 2:
-				defer h.destroyCUDA()
-			}
-			sol = h.reduce(center, max, maxl, &alphabet2)
-		} else {
-			sol = h.Reduce(center, max, maxl, &alphabet2)
+		switch needCuda() {
+		case 1:
+			return h.InitialLimit, nil
+		case 2:
+			defer h.destroyCUDA()
 		}
+		sol = h.reduce(center, max, maxl, &alphabet2)
 		if sol[1] == 0 {
 			if len(sols) > 0 && sols[len(sols)-1][1] > max+1 {
 				max++
@@ -230,13 +222,6 @@ looop:
 			if len(sols) >= h.InitialLimit {
 				println("SOLUTION SIZE", len(sols), "is below LIMIT ", h.InitialLimit)
 				return h.InitialLimit, nil
-			}
-			var v1decrease uint32
-			if len(sols) > 0 {
-				v1decrease = sols[0][1] * 2
-			}
-			for i := range sols {
-				sols[i][1], v1decrease = v1decrease-sols[i][1], sols[i][1]
 			}
 			tron, err := hashtron.New(sols, byte(bits)+1)
 			if err != nil {

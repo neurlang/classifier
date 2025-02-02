@@ -40,13 +40,19 @@ __device__ uint32_t real_modulo(uint32_t x, uint32_t recip, uint32_t y) {
 __device__ static int exitFlag = 0;
 
 
-extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *alphabet, uint32_t* out) {
+extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *alphabet0, uint32_t *alphabet1, uint32_t* out) {
 	uint32_t max = d_nums[0];
-	uint32_t maxl = d_nums[1];
-	uint32_t timeMs = d_nums[2];
-	uint32_t tasks = d_nums[3];
-	uint32_t iteration = d_nums[4];
-	uint32_t center = d_nums[5];
+	uint32_t l0 = d_nums[1];
+	uint32_t l1 = d_nums[2];
+	uint32_t timeMs = d_nums[3];
+	uint32_t tasks = d_nums[4];
+	uint32_t iteration = d_nums[5];
+	uint32_t center = d_nums[6];
+	uint32_t *alphabet[2] = {alphabet0, alphabet1};
+	uint32_t minl = l0;
+	if (l1 < l0) {
+		minl = l1;
+	}
 
 	int myFlag = iteration;
 	uint64_t tid_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -65,7 +71,6 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 		return;
 	}
 
-	uint32_t maxl_recip = real_modulo_recip(maxl);
 	clock_t start = clock();
 
 	for (; (((clock() - start) / (float)CLOCKS_PER_SEC) < (((float)timeMs)*(float)0.001f)); s += tasks) {
@@ -73,61 +78,99 @@ extern "C" __global__ void reduce(uint8_t *d_set, uint32_t *d_nums, uint32_t *al
 			return;
 		}
 		//__syncthreads();
-		if (maxl > 4) {
-			uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
-			uint32_t i = 0;
-			uint32_t v = alphabet[i];
-			uint32_t size = 0;
-			for (uint32_t j = 0; j < 2 * maxl; j++) {
-				i = hash(v, center^s, max);
-				v = alphabet[(j & 1) * maxl + uint32_t(((uint64_t)((i + 1) * maxl_recip) * uint64_t(maxl)) >> 32)];
-
-				uint32_t imodmax = i;
-				if ((set[imodmax >> 2] >> ((imodmax & 3) << 1)) & 3 != 0) {
-					if ((set[imodmax >> 2] >> ((imodmax & 3) << 1)) & 3 == ((j ^ 1) & 1) + 1) {
-						goto next_iteration;
-					}
-				} else {
+		uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
+		uint32_t size = 0;
+		for (uint32_t j = 0; j < minl; j++) {
+			//if (atomicAdd(&exitFlag, 0) > myFlag) {
+			//	return;
+			//}
+			for (uint8_t jj = 0; jj < 2; jj++) {
+				uint32_t i = alphabet[jj][j];
+				uint32_t v = hash(i, center^s, max);
+				const uint8_t subwords = 4;
+				const uint8_t twobitmask = 3;
+				uint32_t w0 = v / subwords;
+				uint32_t w1 = (v % subwords) << 1;
+				uint8_t loaded = (set[w0] >> w1) & twobitmask;
+				if (loaded == (2 - jj)) {
+					goto next_iteration;
+				}
+				if (loaded == 0) {
 					size++;
 				}
-				set[imodmax >> 2] |= (j & 1) + 1 << ((imodmax & 3) << 1);
+				set[w0] |= ((1 + jj) << w1);
 			}
-			if (atomicAdd(&exitFlag, 0) > myFlag) {
-				return;
-			}
-			if (size == 2*maxl) {
+		}
+
+		if (atomicAdd(&exitFlag, 0) > myFlag) {
+			return;
+		}
+		for (uint32_t j = minl; j < l0; j++) {
+			//if (atomicAdd(&exitFlag, 0) > myFlag) {
+			//	return;
+			//}
+			uint8_t jj = 0;
+			uint32_t i = alphabet[jj][j];
+			uint32_t v = hash(i, center^s, max);
+			const uint8_t subwords = 4;
+			const uint8_t twobitmask = 3;
+			uint32_t w0 = v / subwords;
+			uint32_t w1 = (v % subwords) << 1;
+			uint8_t loaded = (set[w0] >> w1) & twobitmask;
+			if (loaded == (2 - jj)) {
 				goto next_iteration;
 			}
-			if (atomicAdd(&exitFlag, 0) > myFlag) {
-				return;
+			if (loaded == 0) {
+				size++;
 			}
-			//__syncthreads();
-		}
-		for (uint32_t i = 0; i < maxl; i++) {
-			uint32_t v = hash(alphabet[i], center^s, max);
-			for (uint32_t j = 0; j < maxl; j++) {
-				uint32_t w = hash(alphabet[maxl+j], center^s, max);
-					if (v == w) {
-						goto next_iteration;
-				}
-			}
+			set[w0] |= (1 + jj) << w1;
 		}
 		if (atomicAdd(&exitFlag, 0) > myFlag) {
 			return;
 		}
+		for (uint32_t j = minl; j < l1; j++) {
+			//if (atomicAdd(&exitFlag, 0) > myFlag) {
+			///	return;
+			//}
+			uint8_t jj = 1;
+			uint32_t i = alphabet[jj][j];
+			uint32_t v = hash(i, center^s, max);
+			const uint8_t subwords = 4;
+			const uint8_t twobitmask = 3;
+			uint32_t w0 = v / subwords;
+			uint32_t w1 = (v % subwords) << 1;
+			uint8_t loaded = (set[w0] >> w1) & twobitmask;
+			if (loaded == (2 - jj)) {
+				goto next_iteration;
+			}
+			if (loaded == 0) {
+				size++;
+			}
+			set[w0] |= (1 + jj) << w1;
+		}
+
+		if (atomicAdd(&exitFlag, 0) > myFlag) {
+			return;
+		}
+		if (size == l0 + l1) {
+			goto next_iteration;
+		}
+		if (atomicAdd(&exitFlag, 0) > myFlag) {
+			return;
+		}
+		//__syncthreads();
 		//__syncthreads();
 		// Atomic operations to update output
 		out[0] = center^s;
 		out[1] = max;
 		atomicExch(&exitFlag, myFlag+1);
 		//__syncthreads();
-
 		return;
 
 		next_iteration:
 		{
 			uint8_t* set = &d_set[tid * (((max + 3) / 4) + 4)];
-			for (uint32_t i = 0; i < ((max + 3) / 4); i++) {
+			for (uint32_t i = 0; i < ((max + 3) / 4) + 4; i++) {
 				set[i] = 0;
 			}
 		}

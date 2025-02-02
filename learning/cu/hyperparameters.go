@@ -22,8 +22,10 @@ type HyperParameters struct {
 	CuMemoryPortion uint16 // how many percent of gpu memory to use. 2=half, 3=third
 	CuErase         bool   // pre-erase memory set
 
+
+	set, input0, input1, result *cu.DevicePtr
+
 	ctx                *cu.CUContext
-	set, input, result *cu.DevicePtr
 	inputNums          *cu.DevicePtr
 	fn, fn1, fn2       *cu.Function
 	stream             *cu.Stream

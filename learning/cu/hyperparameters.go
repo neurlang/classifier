@@ -21,7 +21,9 @@ type HyperParameters struct {
 	CuMemoryBytes   uint64 // statically set memory
 	CuMemoryPortion uint16 // how many percent of gpu memory to use. 2=half, 3=third
 	CuErase         bool   // pre-erase memory set
+	CuArenaBytes   uint64 // set memory for solution arena
 
+	temp0, temp1, arena *cu.DevicePtr
 
 	set, input0, input1, result *cu.DevicePtr
 

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-nvcc -ptx reduceCUDA.cu -o reduceCUDA.ptx
+nvcc --extended-lambda -ptx reduceCUDA.cu -o reduceCUDA.ptx

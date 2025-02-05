@@ -33,8 +33,8 @@ func timeTrack(start time.Time) {
 	fmt.Printf("time: %s\n", elapsed)
 }
 
-func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
-	defer timeTrack(time.Now())
+func (h *HyperParameters) Reducing(alphabet [2][]uint32, untilMaxl uint32) [][2]uint32 {
+	//defer timeTrack(time.Now())
 	if len(alphabet[0])+len(alphabet[1]) == 0 {
 		// garbage in, garbage out
 		return nil
@@ -87,6 +87,7 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 		normal_rand.Shuffle(len(alphabet[0]), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
 		normal_rand.Shuffle(len(alphabet[1]), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
 	}
+	//return h.reduceCUDA(alphabet)
 	var orig_alpha = alphabet
 	var center uint32 = 0
 	for u := uint32(h.DeadlineRetry); u > 0; u-- {
@@ -258,6 +259,9 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 			if maxl == 1 && len(alphabet[0]) == len(alphabet[1]) && alphabet[0][0] == 0 && alphabet[1][0] == 1 {
 				break
 			}
+			if maxl < untilMaxl {
+				break
+			}
 			var sub = h.Subtractor
 			if sub > maxl {
 				sub = maxl - 1
@@ -279,8 +283,10 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 				break
 			}
 		}
+		if maxl < untilMaxl {
+			return program
+		}
 		if maxl == 1 && alphabet[0][0] == 0 && alphabet[1][0] == 1 {
-
 			if !h.DisableProgressBar {
 				const progressBarWidth = 40
 				defer fmt.Printf("\r[%s] 100%% SOLUTION SIZE = %d \n", progressBar(progressBarWidth, progressBarWidth), len(program))
@@ -292,3 +298,4 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 	}
 	return nil
 }
+

@@ -46,36 +46,47 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 			normal_rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
 		}
 	}
-	if h.Shuffle {
-		normal_rand.Shuffle(len(alphabet[0]), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
-		normal_rand.Shuffle(len(alphabet[1]), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
-	}
 	// add random value to empty set not present in the other set
-	boost := func() {
+	{
 		for i := 0; i < 2; i++ {
-			if len(alphabet[i]) == 0 || len(alphabet[i])+len(alphabet[1-i]) <= 2 {
-				// Find the first missing number
-				var rand = uint32(len(alphabet[1-i]))
-				for j := range alphabet[1-i] {
-					for alphabet[1-i][j] < uint32(j) && alphabet[1-i][j] != alphabet[1-i][alphabet[1-i][j]] {
-						aa := &alphabet[1-i][j]
-						bb := &alphabet[1-i][alphabet[1-i][j]]
-						*aa, *bb = *bb, *aa
+			if len(alphabet[i]) == 0 {
+				// roll a random number
+				var rand = normal_rand.Uint32()
+				var exists bool
+				// The random number can't be in the other set
+				for _, v := range alphabet[1-i] {
+					if v == rand {
+						exists = true
+						break
 					}
 				}
-				for j := range alphabet[1-i] {
-					if alphabet[1-i][j] != uint32(j) {
-						rand = uint32(j)
-						break
+				if exists {
+					// Find the first missing number
+					rand = uint32(len(alphabet[1-i]))
+					for j := range alphabet[1-i] {
+						for alphabet[1-i][j] < uint32(j) && alphabet[1-i][j] != alphabet[1-i][alphabet[1-i][j]] {
+							aa := &alphabet[1-i][j]
+							bb := &alphabet[1-i][alphabet[1-i][j]]
+							*aa, *bb = *bb, *aa
+						}
+					}
+					// now each small number was swapped to it's value's place
+					for j, v := range alphabet[1-i] {
+						if v != uint32(j) {
+							rand = uint32(j)
+							break
+						}
 					}
 				}
 				// add it to current alphabet
 				alphabet[i] = append(alphabet[i], rand)
-				break
 			}
 		}
 	}
-	boost()
+	if h.Shuffle {
+		normal_rand.Shuffle(len(alphabet[0]), func(i, j int) { alphabet[0][i], alphabet[0][j] = alphabet[0][j], alphabet[0][i] })
+		normal_rand.Shuffle(len(alphabet[1]), func(i, j int) { alphabet[1][i], alphabet[1][j] = alphabet[1][j], alphabet[1][i] })
+	}
 	var orig_alpha = alphabet
 	var center uint32 = 0
 	for u := uint32(h.DeadlineRetry); u > 0; u-- {
@@ -269,12 +280,12 @@ func (h *HyperParameters) byReducing(alphabet [2][]uint32) [][2]uint32 {
 			}
 		}
 		if maxl == 1 && alphabet[0][0] == 0 && alphabet[1][0] == 1 {
-		
+
 			if !h.DisableProgressBar {
 				const progressBarWidth = 40
 				defer fmt.Printf("\r[%s] 100%% SOLUTION SIZE = %d \n", progressBar(progressBarWidth, progressBarWidth), len(program))
 			}
-		
+
 			return program
 		}
 		program = nil

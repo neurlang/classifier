@@ -33,7 +33,8 @@ func timeTrack(start time.Time) {
 	fmt.Printf("time: %s\n", elapsed)
 }
 
-func (h *HyperParameters) Reducing(alphabet [2][]uint32, untilMaxl uint32) [][2]uint32 {
+// Reducing could mutate the alphabet, and it runs only till untilMaxl if nonzero, starting from initMaxx if nonzero
+func (h *HyperParameters) Reducing(alphabet [2][]uint32, untilMaxl, initMaxx uint32) [][2]uint32 {
 	//defer timeTrack(time.Now())
 	if len(alphabet[0])+len(alphabet[1]) == 0 {
 		// garbage in, garbage out
@@ -97,11 +98,14 @@ func (h *HyperParameters) Reducing(alphabet [2][]uint32, untilMaxl uint32) [][2]
 			maxl = uint32(len(alphabet[1]))
 		}
 		var maxmaxl = maxl
-
 		var program_mut sync.Mutex
 		var program [][2]uint32
 		var minadd uint32 = 0
 		var maxx = uint32((uint64(maxl) * uint64(maxl)) / uint64(h.Factor))
+		if initMaxx != 0 {
+			// forced by an external algorithm
+			maxx = initMaxx
+		}
 		var initial = len(program) == 0
 		for maxmax := maxx; maxx <= maxmax; {
 			if !h.DisableProgressBar {

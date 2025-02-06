@@ -64,7 +64,7 @@ func (h *HyperParameters) Solve(d datasets.SplittedDataset) (int, *hashtron.Hash
 			}
 		}
 	}
-	prog := h.Reducing(data, 0)
+	prog := h.Reducing(data, 0, 0)
 	if len(prog) == 0 {
 		tron, err := hashtron.New(nil, 0)
 		if err != nil {

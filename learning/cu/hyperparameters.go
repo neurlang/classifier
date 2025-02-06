@@ -27,7 +27,7 @@ type HyperParameters struct {
 
 	set, input0, input1, result *cu.DevicePtr
 
-	ctx                *cu.CUContext
+	ctx                *cu.Ctx
 	inputNums          *cu.DevicePtr
 	fn, fn1, fn2       *cu.Function
 	stream             *cu.Stream

@@ -14,13 +14,12 @@ import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/learning/cu/kernel"
 import "gorgonia.org/cu"
 import "unsafe"
+//import "sort"
 
 type modulo_t = uint32
 
-const INPUTS = 11
-const RESULTS = 100
-
-var result   [RESULTS*2]uint32
+const INPUTS = 16
+const RESULTS = 50
 
 // Training trains a single hashtron on a dataset d. It outputs the trained hashtron if successful, or an error.
 func (h *HyperParameters) Training(d datasets.Splitter) (*hashtron.Hashtron, error) {
@@ -163,23 +162,44 @@ looop:
 			if maxmaxl > 0 {
 				progress := progressBarWidth - int(maxl*progressBarWidth/maxmaxl)
 				percent := 100 - int(maxl*100/maxmaxl)
-				fmt.Printf("\r[%s%s] %d%% ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent)
+					fmt.Printf("\r[%s%s] %d%% PROBLEM SIZE = %d ", progressBar(progress, progressBarWidth), emptySpace(progressBarWidth-progress), percent, max)
 			}
 		}
-		var alphabet2 = [2][]uint32{alphabet[0], alphabet[1]}
+		var alphabet2 = [2][]uint32{ alphabet[0], alphabet[1] }
+		cloneCPU := func() {
+			// remove this once CPU Reducing() doesn't mutate the alphabet
+			alphabet2 = [2][]uint32{make([]uint32, len(alphabet[0])), make([]uint32, len(alphabet[1]))}
+			copy(alphabet2[0], alphabet[0])
+			copy(alphabet2[1], alphabet[1])
+		}
 		var newsols [][2]uint32
-		if maxl > h.CuCutoff || initial {
-			newsols = h.H().Reducing(alphabet2, maxl)
+		if maxl > h.CuCutoff && h.CuCutoff != 0 {
+			cloneCPU()
+			//println("\nCPU:")
+			newsols = h.H().Reducing(alphabet2, h.CuCutoff, max)
+			//println("\nEND CPU:")
+		} else if initial {
+			cloneCPU()
+			//println("\nCPU:")
+			newsols = h.H().Reducing(alphabet2, maxl, max)
+			//println("\nEND CPU:")
 		} else {
 			if !inited {
 				defer cudaInitFn()()
 				if !inited {
-					newsols = h.H().Reducing(alphabet2, h.CuCutoff)
+					cloneCPU()
+					//println("\nCPU:")
+					newsols = h.H().Reducing(alphabet2, 0, max)
+					//println("\nEND CPU:")
 				} else {
+					//println("\nCUDA:")
 					newsols = h.reduce(center, max, minadd, &alphabet2)
+					//println("\nEND CUDA:")
 				}
 			} else {
+				//println("\nCUDA:")
 				newsols = h.reduce(center, max, minadd, &alphabet2)
+				//println("\nEND CUDA:")
 			}
 		}
 		if len(newsols) == 0 {
@@ -201,14 +221,11 @@ looop:
 				continue looop
 			}
 		}
-		var m = max
-		if inited {
-			m = newsols[0][1]
-			if m != max {
-				println("CU bug: sol 1 must be max")
-				continue looop
-			}
+		if newsols[0][1] > max {
+			println("CU bug: sol 1 must be max or below")
+			continue looop
 		}
+		var m = max
 		for _, sol := range newsols {
 			if m < sol[1] {
 				fmt.Println(newsols)
@@ -217,51 +234,95 @@ looop:
 			}
 			m = sol[1]
 		}
-
-		var set = [2]map[uint32]struct{} {make(map[uint32]struct{}), make(map[uint32]struct{})}
-	checkloop:
-		for q := range newsols {
-			if q == 0 {
-				for j := range alphabet {
-					for i := range alphabet[j] {
-						set[j][hash.Hash(alphabet[j][i], newsols[0][0], newsols[0][1])] = struct{}{}
+		const PRODUCTION = true
+		if PRODUCTION {
+			//println("begin", len(newsols))
+			for j := range alphabet {
+				for i := range alphabet[j] {
+					for _, sol := range newsols {
+						alphabet[j][i] = hash.Hash(alphabet[j][i], sol[0], sol[1])
 					}
 				}
-				for v0 := range set[0] {
-					for v1 := range set[1] {
-						if v0 == v1 {
-							println("CU bug: sets overlapped")
-							continue looop
+				
+			}
+			for q := range alphabet {
+				// Insertion Sort, we're on go 1.16 at the moment
+				for i := 1; i < len(alphabet[q]); i++ {
+					j := i
+					for j > 0 && alphabet[q][j-1] > alphabet[q][j] {
+						alphabet[q][j-1], alphabet[q][j] = alphabet[q][j], alphabet[q][j-1]
+						j--
+					}
+				}
+				// compact, we're on go 1.16 at the moment
+				s := alphabet[q]
+				if len(s) > 1 {
+					for k := 1; k < len(s); k++ {
+						if s[k] == s[k-1] {
+							s2 := s[k:]
+							for k2 := 1; k2 < len(s2); k2++ {
+								if s2[k2] != s2[k2-1] {
+									s[k] = s2[k2]
+									k++
+								}
+							}
+							s = s[:k]
+							break
 						}
 					}
+					alphabet[q] = s
 				}
-			} else {
-				var set_next = [2]map[uint32]struct{} {make(map[uint32]struct{}), make(map[uint32]struct{})}
-				for j := range set {
-					for i := range set[j] {
-						set_next[j][hash.Hash(i, newsols[q][0], newsols[q][1])] = struct{}{}
-					}
-				}
-				for v0 := range set[0] {
-					for v1 := range set[1] {
-						if v0 == v1 {
-							println("CU bug: sets overlapped")
-							newsols = newsols[:q-1]
-							break checkloop
+			}
+			//println("done", len(newsols))
+		} else { // self checking
+			var set = [2]map[uint32]struct{} {make(map[uint32]struct{}), make(map[uint32]struct{})}
+		checkloop:
+			for q := range newsols {
+				if q == 0 {
+					for j := range alphabet {
+						for i := range alphabet[j] {
+							set[j][hash.Hash(alphabet[j][i], newsols[0][0], newsols[0][1])] = struct{}{}
 						}
 					}
+					for v0 := range set[0] {
+						for v1 := range set[1] {
+							if v0 == v1 {
+								println("CU bug: sets overlapped")
+								continue looop
+							}
+						}
+					}
+				} else {
+					var set_next = [2]map[uint32]struct{} {make(map[uint32]struct{}), make(map[uint32]struct{})}
+					for j := range set {
+						for i := range set[j] {
+							set_next[j][hash.Hash(i, newsols[q][0], newsols[q][1])] = struct{}{}
+						}
+					}
+					for v0 := range set[0] {
+						for v1 := range set[1] {
+							if v0 == v1 {
+								println("CU bug: sets overlapped")
+								newsols = newsols[:q-1]
+								break checkloop
+							}
+						}
+					}
+					set = set_next
 				}
-				set = set_next
 			}
-		}
-		alphabet[0] = alphabet[0][:0]
-		alphabet[1] = alphabet[1][:0]
+			alphabet[0] = alphabet[0][:0]
+			alphabet[1] = alphabet[1][:0]
 
-		for j := range set {
-			for v := range set[j] {
-				alphabet[j] = append(alphabet[j], v)
+			for j := range set {
+				for v := range set[j] {
+					alphabet[j] = append(alphabet[j], v)
+				}
 			}
 		}
+
+
+		//println("done sets")
 
 
 		sols = append(sols, newsols...)
@@ -366,7 +427,6 @@ func nvTasks(tasks int) [2][3]int {
 }
 
 func (h *HyperParameters) initCUDA(max, l0, l1 uint32) error {
-
 	if l0 == 0 || l1 == 0 {
 		panic("one set is empty")
 	}
@@ -377,11 +437,7 @@ func (h *HyperParameters) initCUDA(max, l0, l1 uint32) error {
 		fmt.Printf("Failed to get device: %v\n", err)
 		return err
 	}
-	ctx, err := device.MakeContext(cu.SchedAuto)
-	if err != nil {
-		fmt.Printf("Failed to create context: %v\n", err)
-		return err
-	}
+	ctx := cu.NewContext(device, cu.SchedAuto)
 	// Lock context for thread safety
 	err = ctx.Lock()
 	if err != nil {
@@ -415,7 +471,7 @@ func (h *HyperParameters) initCUDA(max, l0, l1 uint32) error {
 	}
 	arenaSize := int64(h.CuArenaBytes) * int64(unsafe.Sizeof(uint32(0)))
 	if h.CuArenaBytes == 0 {
-		arenaSize = 1024*1024*16 * int64(unsafe.Sizeof(uint32(0)))
+		arenaSize = 1 * int64(unsafe.Sizeof(uint32(0)))
 	}
 	d_arena, err := cu.MemAlloc(arenaSize)
 	if err != nil {
@@ -435,12 +491,12 @@ func (h *HyperParameters) initCUDA(max, l0, l1 uint32) error {
 		return err
 	}
 
-	stream, err := cu.MakeStream(cu.NonBlocking)
+	stream, err := ctx.MakeStream(cu.NonBlocking)
 	if err != nil {
 		fmt.Printf("Failed to make stream: %v\n", err)
 		return err
 	}
-	h.ctx = &ctx
+	h.ctx = ctx
 	h.input0 = &d_input0
 	h.input1 = &d_input1
 	h.inputNums = &d_input_nums
@@ -452,7 +508,10 @@ func (h *HyperParameters) initCUDA(max, l0, l1 uint32) error {
 }
 func (h *HyperParameters) destroyCUDA() {
 	h.fn = nil
-	h.stream = nil
+	if h.stream != nil {
+		h.stream.Destroy()
+		h.stream = nil
+	}
 	if h.input0 != nil {
 		cu.MemFree(*h.input0)
 		h.input0 = nil
@@ -500,7 +559,7 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, minadd uint32, alph
 	if tasks == 0 {
 		panic("there are no tasks")
 	}
-
+	var result = make([]uint32, 2*RESULTS, 2*RESULTS)
 	x := nvTasks(tasks)
 
 	// Allocate device memory
@@ -517,12 +576,9 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, minadd uint32, alph
 	d_fn := *h.fn
 	d_stream := *h.stream
 	d_input_nums := *h.inputNums
+	//d_ctx := *h.ctx
 
-	err := cu.SetCurrentContext(*h.ctx)
-	if err != nil {
-		fmt.Printf("Failed to set device context: %v\n", err)
-		return
-	}
+	var err error
 
 	if h.set != nil {
 		d_set = *h.set
@@ -570,24 +626,25 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, minadd uint32, alph
 	}
 
 	// Copy data from host to device
-	err = cu.MemcpyHtoDAsync(d_input0, unsafe.Pointer(&alphabet[0][0]), input0Size, *h.stream)
+	err = cu.MemcpyHtoDAsync(d_input0, unsafe.Pointer(&alphabet[0][0]), input0Size, d_stream)
 	if err != nil {
 		fmt.Printf("Failed to copy input data 0 to device: %v\n", err)
 		return
 	}
-	err = cu.MemcpyHtoDAsync(d_input1, unsafe.Pointer(&alphabet[1][0]), input1Size, *h.stream)
+	err = cu.MemcpyHtoDAsync(d_input1, unsafe.Pointer(&alphabet[1][0]), input1Size, d_stream)
 	if err != nil {
 		fmt.Printf("Failed to copy input data 1 to device: %v\n", err)
 		return
 	}
 
-	var res = uint32(RESULTS)
+	var res = 2*uint32(RESULTS)
 	var input_numbers = [INPUTS]uint32{max, uint32(len(alphabet[0])), uint32(len(alphabet[1])),
-					uint32(h.DeadlineMs), uint32(tasks), h.iter, center, 0, 0, res, minadd}
+					uint32(h.DeadlineMs*RESULTS), uint32(tasks), h.iter, center,
+					0, 0, res, minadd, uint32(h.CuArenaBytes), 0, 0, 0, h.Subtractor}
 
 	//fmt.Println(input_numbers, x, input0Size, input1Size, inputNumsSize, resultSize, setSize)
 
-	err = cu.MemcpyHtoDAsync(d_input_nums, unsafe.Pointer(&input_numbers[0]), inputNumsSize, *h.stream)
+	err = cu.MemcpyHtoDAsync(d_input_nums, unsafe.Pointer(&input_numbers[0]), inputNumsSize, d_stream)
 	if err != nil {
 		fmt.Printf("Failed to copy input data to device: %v\n", err)
 		return
@@ -602,23 +659,43 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, minadd uint32, alph
 		unsafe.Pointer(&d_arena),
 		unsafe.Pointer(&d_result),
 	}
-
+	//println("entering kernel")
 	err = d_fn.Launch(x[1][0], x[1][1], x[1][2], x[0][0], x[0][1], x[0][2], 0, d_stream, args)
 	if err != nil {
 		fmt.Printf("Failed to launch kernel: %v\n", err)
 		return
 	}
-
-	h.iter++
-
+	//println("after kernel, gonna copy:", resultSize, "bytes")
 	{
 		// Copy result from device to host
-		err = cu.MemcpyDtoHAsync(unsafe.Pointer(&result[0]), d_result, resultSize, *h.stream)
+		err = cu.MemcpyDtoHAsync(unsafe.Pointer(&result[0]), d_result, resultSize, d_stream)
 		if err != nil {
 			fmt.Printf("Failed to copy result data from device: %v\n", err)
 			return
 		}
 	}
+/*
+	{
+		// Synchronize the stream to ensure the memcpy completes
+		err = d_stream.Synchronize()
+		if err != nil {
+			fmt.Printf("Stream synchronization failed after async memcpy: %v\n", err)
+			return
+		}
+	}
+*/
+	h.iter++
+/*
+	{
+		errChan := make(chan error)
+		go d_ctx.Run(errChan);
+		if err := <- errChan; err != nil {
+			fmt.Printf("Context run error: %v\n", err)
+			return
+		}
+		
+	}
+*/
 	for i := 0; i < RESULTS; i++ {
 		result0 := result[2*i+0]
 		result1 := result[2*i+1]
@@ -626,6 +703,7 @@ func (h *HyperParameters) reduceCUDA(tasks int, center, max, minadd uint32, alph
 			break
 		}
 		if result1 > max {
+			println("CU BUG: result1 has increaseed past max:", result1, max)
 			break
 		}
 		max = result1

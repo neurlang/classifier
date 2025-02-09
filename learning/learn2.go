@@ -153,7 +153,7 @@ func (h *HyperParameters) Reducing(alphabet [2][]uint32, untilMaxl, initMaxx uin
 							size++
 						}
 						buf[w0] |= uint32(1+wh) << w1
-						return buf[w0]&(buf[w0]>>1) != 0
+						return buf[w0]&(buf[w0]>>1)&0x55555555 != 0
 					}
 
 					var minl = len(alphabet[0])

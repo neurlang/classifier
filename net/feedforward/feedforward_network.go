@@ -5,7 +5,6 @@ import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/hash"
 import "github.com/neurlang/classifier/layer"
 import "github.com/neurlang/classifier/datasets"
-import "sync"
 
 // Intermediate is an intermediate value used as both layer input and layer output in optimization
 type Intermediate interface {
@@ -353,23 +352,24 @@ func (f FeedforwardNetwork) infer(in FeedforwardNetworkInput) (ouput Feedforward
 func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg int) (inter Intermediate, computed bool) {
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var combiner = f.combiners[l+1].Lay()
-		wg := sync.WaitGroup{}
-		for i := 0; i < len(f.layers[l]); i++ {
-			wg.Add(1)
-			go func(i int) {
-				var feat = in.Feature(i)
-				if f.premodulo[l] != 0 {
-					feat = hash.Hash(feat, uint32(i), f.premodulo[l])
-				}
-				var bit = f.layers[l][i].Forward(feat, (i == worst) && (neg == 1))
-				combiner.Put(i, bit&1 != 0)
-				if i == worst {
-					computed = bit&1 != 0
-				}
-				wg.Done()
-			}(i)
+		w := worst
+		if neg != 1 {
+			w = -1
 		}
-		wg.Wait()
+		var features = make([]uint32, len(f.layers[l]), len(f.layers[l]))
+		for i := range features {
+			features[i] = in.Feature(i)
+			if f.premodulo[l] != 0 {
+				features[i] = hash.Hash(features[i], uint32(i), f.premodulo[l])
+			}
+		}
+		var bits = hashtron.HashtronSlice(f.layers[l]).Forward(features, w)
+		for i, bit := range bits {
+			combiner.Put(i, bit&1 != 0)
+			if i == worst {
+				computed = bit&1 != 0
+			}
+		}
 		return combiner, computed
 	}
 

@@ -2,6 +2,7 @@ package hash
 
 // HashVectorized implement many Neurlang hashes in parallel, using something like AVX-512 or similar
 var HashVectorized func(out []uint32, n []uint32, s []uint32, max uint32) = hashNotVectorized
+var HashVectorizedDistinct func(out []uint32, n []uint32, s []uint32, max []uint32) = hashNotVectorizedDistinct
 
 var hashVectorizedParallelism int = 1
 
@@ -14,5 +15,10 @@ func HashVectorizedParallelism() int {
 func hashNotVectorized(out []uint32, n []uint32, s []uint32, max uint32) {
 	for i := range out {
 		out[i] = Hash(n[i], s[i], max)
+	}
+}
+func hashNotVectorizedDistinct(out []uint32, n []uint32, s []uint32, max []uint32) {
+	for i := range out {
+		out[i] = Hash(n[i], s[i], max[i])
 	}
 }

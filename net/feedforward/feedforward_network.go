@@ -54,7 +54,7 @@ type FeedforwardNetwork struct {
 	mapping   []byte
 	combiners []layer.Layer
 	premodulo []uint32
-	preadd    []bool
+	preadd    []byte
 }
 
 // Len returns the number of hashtrons which need to be trained inside the network.
@@ -97,9 +97,9 @@ func (f FeedforwardNetwork) getFrontBase(n int, is_need_hashtron bool) (o int) {
 			return
 		}
 
-		if f.preadd[i] && i > 0 {
+		if f.preadd[i] == preAddition && i > 0 {
 			o += len(v)
-		} else if !f.preadd[i] && i == 0 {
+		} else if preAddition != f.preadd[i] && i == 0 {
 			o += len(v)
 		} else if is_need_hashtron {
 			o += len(v)
@@ -112,7 +112,7 @@ func (f FeedforwardNetwork) getFrontBase(n int, is_need_hashtron bool) (o int) {
 func (f FeedforwardNetwork) LenFrontLayers() (o int) {
 	o++
 	for i, v := range f.preadd {
-		if v && i > 0 {
+		if v == preAddition && i > 0 {
 			o++
 		}
 	}
@@ -126,10 +126,10 @@ func (f FeedforwardNetwork) GetFrontLayer(n int) int {
 	}
 	n--
 	for i, v := range f.preadd {
-		if v && i > 0 && n <= 0 {
+		if v == preAddition && i > 0 && n <= 0 {
 			return i
 		}
-		if v {
+		if v == preAddition {
 			n--
 		}
 	}
@@ -190,23 +190,32 @@ func (f FeedforwardNetwork) GetHashtron(n int) *hashtron.Hashtron {
 	return nil
 }
 
-// NewLayer adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits.
+// NewLayer adds a hashtron layer to the end of network with n hashtrons, each recognizing bits-bits.
 func (f *FeedforwardNetwork) NewLayer(n int, bits byte) {
 	f.NewLayerP(n, bits, 0)
 }
 
-// NewLayerP adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits, and input feature pre-modulo and post-addition.
+const noAddition = 0
+const preAddition = 1
+const interAddition = 2
+
+// NewLayerPA adds a hashtron layer to the end of network with n hashtrons, each recognizing bits-bits, and input feature pre-modulo and pre-addition.
 func (f *FeedforwardNetwork) NewLayerPA(n int, bits byte, premodulo uint32) {
-	f.newLayerPA(n, bits, premodulo, true)
+	f.newLayerPAI(n, bits, premodulo, preAddition)
 }
 
-// NewLayerP adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits, and input feature pre-modulo.
+// NewLayerPI adds a hashtron layer to the end of network with n hashtrons, each recognizing bits-bits, and input feature pre-modulo and inter-addition.
+func (f *FeedforwardNetwork) NewLayerPI(n int, bits byte, premodulo uint32) {
+	f.newLayerPAI(n, bits, premodulo, interAddition)
+}
+
+// NewLayerP adds a hashtron layer to the end of network with n hashtrons, each recognizing bits-bits, and input feature pre-modulo.
 func (f *FeedforwardNetwork) NewLayerP(n int, bits byte, premodulo uint32) {
-	f.newLayerPA(n, bits, premodulo, false)
+	f.newLayerPAI(n, bits, premodulo, noAddition)
 }
 
-// NewLayerP adds a hashtron layer to the end of network with n hashtrons, each recognizing bits bits, and input feature pre-modulo and post-addition.
-func (f *FeedforwardNetwork) newLayerPA(n int, bits byte, premodulo uint32, preaddition bool) {
+// newLayerPAI adds a hashtron layer to the end of network with n hashtrons, each recognizing bits-bits, and input feature pre-modulo and pre-addition/inter-addition.
+func (f *FeedforwardNetwork) newLayerPAI(n int, bits byte, premodulo uint32, preaddition byte) {
 	var layer = make([]hashtron.Hashtron, n)
 	for i := range layer {
 		h, _ := hashtron.New(nil, bits)
@@ -235,7 +244,7 @@ func (f *FeedforwardNetwork) NewCombiner(layer layer.Layer) {
 	f.mapping = append(f.mapping, 0)
 	f.combiners = append(f.combiners, layer)
 	f.premodulo = append(f.premodulo, 0)
-	f.preadd = append(f.preadd, false)
+	f.preadd = append(f.preadd, noAddition)
 }
 
 // IsMapLayerOf checks if hashtron n lies in the final layer of the network.
@@ -305,10 +314,15 @@ func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val 
 		return val
 	}
 	output := Intermediate(infer2io{io: input})
+	preadd_input := output
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
-		if f.preadd[l_prev] {
+		if f.preadd[l_prev] == preAddition {
 			output = Intermediate(&inferPreaddBase{add: input, in: output, base: f.GetFrontOffset(l_prev)})
 		}
+		if f.preadd[l_prev] == interAddition {
+			output = Intermediate(&inferPreaddBase{add: preadd_input, in: output, base: 0})
+		}
+		preadd_input = output
 		output, _ = f.Forward(output, l_prev, -1, 0)
 	}
 	for j := byte(0); j < 16 && j < f.GetLastCells(); j++ {
@@ -320,10 +334,15 @@ func (f FeedforwardNetwork) Infer2(input FeedforwardNetworkParityInOutput) (val 
 // Infer infers the network output based on input, after being trained by using Tally2 or Tally
 func (f FeedforwardNetwork) infer(in FeedforwardNetworkInput) (ouput FeedforwardNetworkInput) {
 	ouput = in
+	preadd_input := ouput
 	for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
-		if f.preadd[l_prev] {
+		if f.preadd[l_prev] == preAddition {
 			ouput = Intermediate(&inferPreaddBase{add: in, in: ouput, base: f.GetFrontOffset(l_prev)})
 		}
+		if f.preadd[l_prev] == interAddition {
+			ouput = Intermediate(&inferPreaddBase{add: preadd_input, in: ouput, base: 0})
+		}
+		preadd_input = ouput
 		ouput, _ = f.Forward(ouput, l_prev, -1, 0)
 	}
 	return
@@ -467,6 +486,7 @@ func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst in
 func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst)
 	origin := in
+	preadd_input := in
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		in := Intermediate(&inferPreaddBase{add: SingleValue(0), in: in, base: 0})
 
@@ -474,13 +494,19 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		var compute [2]int8
 
 		for l_prev := 0; l_prev < l; l_prev += 2 {
-			if f.preadd[l_prev] {
+			if f.preadd[l_prev] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l_prev)}
 			}
+			if f.preadd[l_prev] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifw := in.Feature(f.GetPosition(worst))
-		if f.preadd[l] {
+		if f.preadd[l] == interAddition {
+			ifw += preadd_input.Feature(f.GetPosition(worst))
+		} else if f.preadd[l] == preAddition {
 			ifw += origin.Feature(f.GetFrontOffset(l) + f.GetPosition(worst))
 		}
 		if f.premodulo[l] != 0 {
@@ -488,9 +514,13 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		}
 		for neg := 0; neg < 2; neg++ {
 			inter := in
-			if f.preadd[l] {
+			if f.preadd[l] == preAddition {
 				inter = &inferPreaddBase{add: origin, in: inter, base: f.GetFrontOffset(l)}
 			}
+			if f.preadd[l] == interAddition {
+				inter = &inferPreaddBase{add: preadd_input, in: inter, base: 0}
+			}
+			preadd_input_next := inter
 			inter, computed := f.Forward(inter, l, f.GetPosition(worst), neg)
 			if computed {
 				compute[neg] = 1
@@ -503,9 +533,13 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				}
 			}
 			for l_post := l + 2; l_post < f.LenLayers(); l_post += 2 {
-				if f.preadd[l_post] {
+				if f.preadd[l_post] == preAddition {
 					inter = &inferPreaddBase{add: origin, in: inter, base: f.GetFrontOffset(l_post)}
 				}
+				if f.preadd[l_post] == interAddition {
+					inter = &inferPreaddBase{add: preadd_input_next, in: inter, base: 0}
+				}
+				preadd_input_next = inter
 				inter, _ = f.Forward(inter, l_post, -1, 0)
 			}
 			predicted[neg] = inter
@@ -549,9 +583,13 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 	}
 	if len(f.mapping) > l && f.mapping[l] > 0 {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
-			if f.preadd[l_prev] {
+			if f.preadd[l_prev] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l_prev)}
 			}
+			if f.preadd[l_prev] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifeature := uint32(in.Feature(0))
@@ -559,9 +597,13 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
 		if f.GetBits() == 1 {
-			if f.preadd[l] {
+			if f.preadd[l] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
 			}
+			if f.preadd[l] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
 			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
 			changed := actual != (output.Feature(0)&1 != 0)
 			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
@@ -570,18 +612,26 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		}
 	} else {
 		for l_prev := 0; l_prev < l; l_prev += 2 {
-			if f.preadd[l_prev] {
+			if f.preadd[l_prev] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l_prev)}
 			}
+			if f.preadd[l_prev] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
 		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
 		}
-		if f.preadd[l] {
+		if f.preadd[l] == preAddition {
 			in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
 		}
+		if f.preadd[l] == interAddition {
+			in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+		}
+		preadd_input = in
 		_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
 		changed := actual != (output.Feature(0)&1 != 0)
 		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)

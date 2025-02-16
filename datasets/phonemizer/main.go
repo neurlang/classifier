@@ -15,70 +15,59 @@ type NewSample struct {
 	SrcCut []string
 	SrcFut []string
 	Option string
-	Out    bool
-	Len    int
-	I      int
-	J      int
+	Out bool
+	Len int
+	I int
+	J int
 }
 
-func hashSampler(v []string, m int, seed uint32) string {
-	if len(v) == 0 {
-		return "\x00" // Handle empty slices
-	}
-	idx := hash.Hash(uint32(m), seed, uint32(len(v)))
-	return v[idx]
+func hashSampler(v []string, m int, n uint32) string {
+	return v[hash.Hash(uint32(m), n, uint32(len(v)))]
 }
-
-func contextSampler(v []string, n int, opt string) string {
-	n %= len(v) + 1
+func pad0Sampler(v []string, n int, opt string) string {
+	n %= len(v)+1
 	if n == len(v) {
 		return opt + "\x00"
 	}
 	return v[n]
 }
-
-func reverseContextSampler(v []string, n int, opt string) string {
-	n %= len(v) + 1
+func pad0RevSampler(v []string, n int, opt string) string {
+	n %= len(v)+1
 	if n == 0 {
 		return opt + "\x00"
 	}
-	return v[len(v)-n]
+	n--
+	return v[len(v)-n-1]
 }
 
 func (s *NewSample) Feature(n int) uint32 {
-	const numCases = 7
 	h := hash.StringHash(uint32(n), s.Option)
-
-	switch n % numCases {
-	case 0: // Original SrcA sampling
-		return hash.StringHash(h, hashSampler(s.SrcA, n/numCases, h))
-
-	case 1: // SrcCut with reverse context
-		return hash.StringHash(h, reverseContextSampler(s.SrcCut, n/numCases, s.Option))
-
-	case 2: // DstA future context
-		return hash.StringHash(uint32(n), contextSampler(s.DstA, n/numCases, s.Option))
-
-	case 3: // SrcA future lookahead
-		return hash.StringHash(uint32(n), contextSampler(s.SrcA, n/numCases, s.Option))
-
-	case 4: // SrcFut direct access
-		return hash.StringHash(h, contextSampler(s.SrcFut, n/numCases, s.Option))
-
-	case 5: // Option + SrcFut bigram using hash chaining
-		if len(s.SrcFut) > 0 {
-			optHash := hash.StringHash(0, s.Option)
-			idx := hash.Hash(h, uint32(n), uint32(len(s.SrcFut)))
-			return hash.StringHash(optHash, s.SrcFut[idx])
-		}
-
-	case 6: // DstA + SrcCut interaction using hash chaining
-		if len(s.DstA) > 0 && len(s.SrcCut) > 0 {
-			dstHash := hash.StringHash(0, s.DstA[len(s.DstA)-1])
-			return hash.StringHash(dstHash, s.SrcCut[len(s.SrcCut)-1])
-		}
+	switch n % 5 {
+	case 0: return hash.StringHash(uint32(n), hashSampler(s.SrcA, (n / 5), h))
+	case 1: return hash.StringHash(h, pad0RevSampler(s.SrcCut, n / 5, s.Option)) // 67, 91
+	case 2: return hash.StringHash(uint32(n), pad0Sampler(s.DstA, n / 5, s.Option))
+	case 3: return hash.StringHash(uint32(n), pad0Sampler(s.SrcA, n / 5, s.Option)) //
+	case 4:	return hash.StringHash(h, pad0Sampler(s.SrcFut, n / 5, s.Option)) // 70, 91
 	}
-	return hash.StringHash(h, "\x00") // Default for empty cases
+/*
+	n %= len(s.SrcA) + len(s.DstA) + len(s.SrcCut) + len(s.SrcFut)
+	if n < len(s.SrcA) {
+		return hash.StringHash(1, s.SrcA[n])
+	}
+	n -= len(s.SrcA)
+	if n < len(s.DstA) {
+		return hash.StringHash(2, s.DstA[n])
+	}
+	n -= len(s.DstA)
+	if n < len(s.SrcCut) {
+		return hash.StringHash(3, s.SrcCut[n])
+	}
+	n -= len(s.SrcCut)
+	if n < len(s.SrcFut) {
+		return hash.StringHash(4, s.SrcFut[n])
+	}
+*/
+	return 0
 }
 
 func (s *NewSample) Parity() uint16 {
@@ -142,6 +131,7 @@ func (s *Sample) Parity() uint16 {
 func (s *Sample) Output() uint16 {
 	return 0
 }
+
 
 type Output bool
 
@@ -233,15 +223,15 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 				if option != dsta[i] {
 					j := len(srca) - i
 					s := &NewSample{
-						SrcA:   srca,
-						DstA:   dsta[0:i],
+						SrcA: srca,
+						DstA: dsta[0:i],
 						SrcCut: srca[0:i],
 						SrcFut: srca[i:],
 						Option: option,
-						Out:    false,
-						I:      i,
-						J:      j,
-						Len:    len(srca),
+						Out: false,
+						I: i,
+						J: j,
+						Len: len(srca),
 					}
 					out[s.Key()] = s
 				}
@@ -261,15 +251,15 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 			j := len(srca) - i
 			option := dsta[i]
 			s := &NewSample{
-				SrcA:   srca,
-				DstA:   dsta[0:i],
+				SrcA: srca,
+				DstA: dsta[0:i],
 				SrcCut: srca[0:i],
 				SrcFut: srca[i:],
 				Option: option,
-				Out:    true,
-				I:      i,
-				J:      j,
-				Len:    len(srca),
+				Out: true,
+				I: i,
+				J: j,
+				Len: len(srca),
 			}
 			out[s.Key()] = s
 		}

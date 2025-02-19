@@ -181,7 +181,7 @@ func loop(filename string, do func(string, string)) {
 func NewDataset(filename string) (out map[[3]string]*NewSample) {
 	out = make(map[[3]string]*NewSample)
 	var oneway = make(map[string]string)
-	var multiway = make(map[string]map[string]struct{})
+	var multiway = make(map[string]map[string]int)
 	loop(filename, func(src, dst string) {
 		srca := strings.Split(src, " ")
 		dsta := strings.Split(dst, " ")
@@ -190,9 +190,9 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 		}
 		for i := range srca {
 			if multiway[srca[i]] == nil {
-				multiway[srca[i]] = make(map[string]struct{})
+				multiway[srca[i]] = make(map[string]int)
 			}
-			multiway[srca[i]][dsta[i]] = struct{}{}
+			multiway[srca[i]][dsta[i]]++
 		}
 	})
 
@@ -218,9 +218,9 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 			if _, ok := oneway[srcv]; ok {
 				continue
 			}
-			for option := range multiway[srcv] {
-				// NOTE: Also look below
-				if option != dsta[i] {
+			okfreq := multiway[srcv][dsta[i]]
+			for option, freq := range multiway[srcv] {
+				if freq >= okfreq {
 					j := len(srca) - i
 					s := &NewSample{
 						SrcA: srca,
@@ -228,40 +228,19 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 						SrcCut: srca[0:i],
 						SrcFut: srca[i:],
 						Option: option,
-						Out: false,
+						Out: option == dsta[i],
 						I: i,
 						J: j,
 						Len: len(srca),
 					}
+					if s.Out {
+						if olds, ok := out[s.Key()]; ok && olds.Out {
+							continue
+						}
+					}
 					out[s.Key()] = s
 				}
 			}
-		}
-	})
-	loop(filename, func(src, dst string) {
-		srca := strings.Split(src, " ")
-		dsta := strings.Split(dst, " ")
-		if len(srca) != len(dsta) {
-			return
-		}
-		for i, srcv := range srca {
-			if _, ok := oneway[srcv]; ok {
-				continue
-			}
-			j := len(srca) - i
-			option := dsta[i]
-			s := &NewSample{
-				SrcA: srca,
-				DstA: dsta[0:i],
-				SrcCut: srca[0:i],
-				SrcFut: srca[i:],
-				Option: option,
-				Out: true,
-				I: i,
-				J: j,
-				Len: len(srca),
-			}
-			out[s.Key()] = s
 		}
 	})
 	return

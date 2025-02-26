@@ -47,27 +47,35 @@ func (s *NewSample) Feature(n int) uint32 {
 	case 1: return hash.StringHash(h, pad0RevSampler(s.SrcCut, n / 5, s.Option)) // 67, 91
 	case 2: return hash.StringHash(uint32(n), pad0Sampler(s.DstA, n / 5, s.Option))
 	case 3: return hash.StringHash(uint32(n), pad0Sampler(s.SrcA, n / 5, s.Option)) //
-	case 4:	return hash.StringHash(h, pad0Sampler(s.SrcFut, n / 5, s.Option)) // 70, 91
+	case 4: return hash.StringHash(h, pad0Sampler(s.SrcFut, n / 5, s.Option)) // 70, 91
 	}
-/*
-	n %= len(s.SrcA) + len(s.DstA) + len(s.SrcCut) + len(s.SrcFut)
-	if n < len(s.SrcA) {
-		return hash.StringHash(1, s.SrcA[n])
-	}
-	n -= len(s.SrcA)
-	if n < len(s.DstA) {
-		return hash.StringHash(2, s.DstA[n])
-	}
-	n -= len(s.DstA)
-	if n < len(s.SrcCut) {
-		return hash.StringHash(3, s.SrcCut[n])
-	}
-	n -= len(s.SrcCut)
-	if n < len(s.SrcFut) {
-		return hash.StringHash(4, s.SrcFut[n])
-	}
-*/
 	return 0
+}
+
+func (s *NewSample) V1() *NewSampleV1 {
+	return (*NewSampleV1)(s)
+}
+
+type NewSampleV1 NewSample
+
+func (s *NewSampleV1) Feature(n int) uint32 {
+	switch n % 3 {
+	case 0:
+		return hash.StringsHash(hash.StringsHash(hash.StringHash(uint32(n), s.Option), s.SrcA), s.DstA)
+	case 1:
+		return hash.StringsHash(hash.StringsHash(hash.StringHash(uint32(n), s.Option), s.SrcCut), s.DstA)
+	case 2:
+		return hash.StringsHash(hash.StringsHash(hash.StringHash(uint32(n), s.Option), s.SrcFut), s.DstA)
+	}
+	return 0
+}
+
+
+func (s *NewSampleV1) Parity() uint16 {
+	return (*NewSample)(s).Parity()
+}
+func (s *NewSampleV1) Output() uint16 {
+	return (*NewSample)(s).Output()
 }
 
 func (s *NewSample) Parity() uint16 {
@@ -142,6 +150,13 @@ func (s *Output) Feature(n int) uint32 {
 	return 0
 }
 
+
+func copystrings(s []string) (r []string) {
+	r = make([]string, len(s))
+	copy(r, s)
+	return
+}
+
 func loop(filename string, do func(string, string)) {
 	// Open the file
 	file, err := os.Open(filename)
@@ -158,8 +173,8 @@ func loop(filename string, do func(string, string)) {
 		columns := strings.Split(line, "\t")
 
 		// Check if we have exactly two columns
-		if len(columns) != 2 {
-			fmt.Println("Line does not have exactly two columns:", line)
+		if len(columns) != 2 && len(columns) != 3 {
+			fmt.Println("Line does not have exactly two or three columns:", line)
 			continue
 		}
 
@@ -222,23 +237,26 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 			for option, freq := range multiway[srcv] {
 				if freq >= okfreq {
 					j := len(srca) - i
-					s := &NewSample{
-						SrcA: srca,
-						DstA: dsta[0:i],
-						SrcCut: srca[0:i],
-						SrcFut: srca[i:],
-						Option: option,
-						Out: option == dsta[i],
-						I: i,
-						J: j,
-						Len: len(srca),
-					}
-					if s.Out {
-						if olds, ok := out[s.Key()]; ok && olds.Out {
-							continue
+					for q := 0; q < j; q++ {
+						s := &NewSample{
+							SrcA: copystrings(srca[:len(srca)-q]),
+							DstA: copystrings(dsta[0:i]),
+							SrcCut: copystrings(srca[0:i]),
+							SrcFut: copystrings(srca[i:len(srca)-q]),
+							Option: option,
+							Out: option == dsta[i],
+							I: i,
+							J: j,
+							Len: len(srca),
 						}
+						if s.Out {
+							olds, ok := out[s.Key()]
+							if ok && olds.Out {
+								continue
+							}
+						}
+						out[s.Key()] = s
 					}
-					out[s.Key()] = s
 				}
 			}
 		}

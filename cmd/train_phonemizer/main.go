@@ -5,11 +5,19 @@ import "sync/atomic"
 import "fmt"
 import "runtime"
 import "flag"
+import "strings"
+import "math/rand"
+import "time"
 
 import "github.com/neurlang/classifier/datasets/phonemizer"
-import "github.com/neurlang/classifier/layer/majpool2d"
+//import "github.com/neurlang/classifier/layer/majpool2d"
+//import "github.com/neurlang/classifier/layer/sum"
+//import "github.com/neurlang/classifier/layer/sochastic"
+import "github.com/neurlang/classifier/layer/parity"
 import "github.com/neurlang/classifier/datasets"
-import "github.com/neurlang/classifier/learning"
+import "github.com/neurlang/classifier/hashtron"
+//import "github.com/neurlang/classifier/learning"
+import "github.com/neurlang/quaternary"
 import "github.com/neurlang/classifier/net/feedforward"
 import "github.com/neurlang/classifier/parallel"
 
@@ -22,6 +30,8 @@ func error_abs(a, b uint32) uint32 {
 
 func main() {
 	cleantsv := flag.String("cleantsv", "", "clean tsv dataset for the language")
+	premodulo := flag.Int("premodulo", 0, "premodulo")
+	part := flag.Int("part", 0, "train on n/part-th")
 	dstmodel := flag.String("dstmodel", "", "model destination .json.lzw file")
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
@@ -40,7 +50,30 @@ func main() {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
 		return
 	}
+/*
 
+
+
+	net.NewLayer(fanout1*fanout2*fanout3, 0)
+	net.NewCombiner(sochastic.MustNew(fanout1*fanout2*fanout3, 32, 1))
+	net.NewLayer(fanout1*fanout2, 0)
+
+	*/
+	const fanout1 = 5
+	var net feedforward.FeedforwardNetwork
+	//net.NewLayer(fanout1, 0)
+	//net.NewCombiner(sochastic.MustNew(fanout1, 32, 0))
+	net.NewLayer(fanout1, 0)
+	net.NewCombiner(parity.MustNew(fanout1))
+	net.NewLayer(1, 0)
+	/*
+	net.NewCombiner(sochastic.MustNew(1, 32, 0))
+	net.NewLayerPI(1, 0, 0)
+	net.NewCombiner(sochastic.MustNew(1, 32, 0))
+	net.NewLayerPI(1, 0, 0)
+	net.NewCombiner(sochastic.MustNew(1, 1, 0))
+*/
+/*
 	const fanout1 = 1
 	const fanout2 = 5
 	const fanout3 = 3
@@ -61,26 +94,35 @@ func main() {
 	//net.NewCombiner(full.MustNew(fanout2, 1, 1))
 	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
 	net.NewLayer(1, 0)
-
-
+*/
 
 	trainWorst := func(worst int) func() {
 		var tally = new(datasets.Tally)
 		tally.Init()
 		tally.SetFinalization(true)
-
-		parallel.ForEach(len(data), 1000, func(jjj int) {
+		if premodulo != nil && *premodulo > 0 {
+			tally.SetGlobalPremodulo(uint32(*premodulo))
+		}
+		
+		var parts = 1
+		if part != nil && *part > 1 {
+			rand.Seed(time.Now().UnixNano())
+			rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+			parts = *part
+		}
+		
+		parallel.ForEach(len(data)/parts, 1000, func(jjj int) {
 			{
-					var io = data[jjj]
+					var io = data[jjj].V1()
 
-					net.Tally4(&io, worst, tally, nil)
+					net.Tally4(io, worst, tally, nil)
 			}
 		})
 		
 		if !tally.GetImprovementPossible() {
 			return nil
 		}
-
+/*
 		var h learning.HyperParameters
 		h.Threads = runtime.NumCPU()
 		h.Factor = 1 // affects the solution size
@@ -91,7 +133,7 @@ func main() {
 
 		// restart when stuck
 		h.DeadlineMs = 1000
-		h.DeadlineRetry = 3
+		h.DeadlineRetry = 10
 
 		// affects how fast is the modulo reduced
 		h.Subtractor = 1
@@ -108,14 +150,19 @@ func main() {
 		
 		//h.AvxLanes = 16
 		//h.AvxSkip = 4
-
+*/
 		fmt.Println("hashtron position:", worst, "(job size:", tally.Len(), ")")
-
-		htron, err := h.Training(tally)
+		ptr := net.GetHashtron(worst)
+		dset := tally.Dataset()
+		q := quaternary.Make(dset)
+		var pmod = [][2]uint32{}
+		if premodulo != nil && *premodulo > 0 {
+			pmod = [][2]uint32{tally.GetGlobalSaltPremodulo()}
+		}
+		htron, err := hashtron.New(pmod, ptr.Bits(), []byte(q))
 		if err != nil {
 			panic(err.Error())
 		}
-		ptr := net.GetHashtron(worst)
 		var backup = *ptr
 		*ptr = *htron
 
@@ -127,13 +174,17 @@ func main() {
 		}
 	}
 	evaluate := func() (int, [32]byte) {
+		var parts = 1
+		if part != nil && *part > 1 {
+			parts = *part
+		}
 		var h = parallel.NewUint16Hasher(len(data))
 		var percent, errsum atomic.Uint64
-		parallel.ForEach(len(data), 1000, func(j int) {
+		parallel.ForEach(len(data)/parts, 1000, func(j int) {
 			{
-				var io = data[j]
+				var io = data[j].V1()
 
-				var predicted = net.Infer2(&io) & 1
+				var predicted = net.Infer2(io) & 1
 				
 				h.MustPutUint16(j, predicted)
 				
@@ -143,8 +194,8 @@ func main() {
 				errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
 			}
 		})
-		success := 100 * int(percent.Load()) / len(data)
-		println("[success rate]", success, "%", "with", errsum.Load(), "errors")
+		success := 100 * int(percent.Load()) / (len(data)/parts)
+		println("[success rate]", success, "%", "with", uint64(parts) * errsum.Load(), "errors")
 
 		if dstmodel == nil || *dstmodel == "" {
 			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")
@@ -155,7 +206,8 @@ func main() {
 
 		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
 			if improved_success_rate > 0 {
-				err := net.WriteZlibWeightsToFile(*dstmodel)
+				model := strings.ReplaceAll(*dstmodel, "weights1", "weights2")
+				err := net.WriteZlibWeightsToFile(model)
 				if err != nil {
 					println(err.Error())
 				}
@@ -170,7 +222,9 @@ func main() {
 		return success, h.Sum()
 	}
 	if resume != nil && *resume && dstmodel != nil {
-		err := net.ReadZlibWeightsFromFile(*dstmodel)
+		model := strings.ReplaceAll(*dstmodel, "weights1", "weights2")
+	
+		err := net.ReadZlibWeightsFromFile(model)
 		if err != nil {
 			println(err.Error())
 		}
@@ -193,7 +247,7 @@ func main() {
 			for worst := 0; worst < len(shuf); worst++ {
 				println("training #", worst, "hastron of", len(shuf), "hashtrons total")
 				if this_backoff := trainWorst(shuf[worst]); this_backoff != nil {
-					infloop = 0
+					infloop = -1
 					this_success, this_state := evaluate()
 					if _, bad := local_minimums[this_state]; bad {
 						this_backoff()

@@ -1,6 +1,8 @@
 package datasets
 
 import "sync"
+import "crypto/rand"
+import "encoding/binary"
 
 // Tally is used to count votes on dataset features and return the majority votes
 type Tally struct {
@@ -26,6 +28,9 @@ type Tally struct {
 
 	// improvementPossible reports whether an improvement is possible
 	improvementPossible bool
+
+	// global premodulo and salt
+	globalPremodulo, globalSalt uint32
 }
 
 // Init initializes the tally dataset structure
@@ -34,11 +39,28 @@ func (t *Tally) Init() {
 	t.correct = make(map[uint32]int64)
 	t.improve = make(map[uint32]int64)
 }
+
 // Free frees the memory occupied by tally dataset structure
 func (t *Tally) Free() {
 	t.mapping = nil
 	t.correct = nil
 	t.improve = nil
+}
+
+func (t *Tally) IsGlobalPremodulo() bool {
+	return t.globalPremodulo != 0
+}
+func (t *Tally) SetGlobalPremodulo(mod uint32) {
+	var b [4]byte
+	rand.Read(b[:])
+	t.globalSalt = binary.LittleEndian.Uint32(b[:])
+	t.globalPremodulo = mod
+}
+func (t *Tally) GetGlobalSaltPremodulo() [2]uint32 {
+	return [2]uint32{t.globalSalt, t.globalPremodulo}
+}
+func (t *Tally) GetGlobalPremodulo() uint32 {
+	return t.globalPremodulo
 }
 
 // SetFinalization sets isFinalization and enables the final stage of training
@@ -52,6 +74,7 @@ func (t *Tally) GetImprovementPossible() bool {
 	defer t.mut.Unlock()
 	return t.improvementPossible
 }
+
 // Len estimates the size of tally
 func (t *Tally) Len() (o int) {
 	t.mut.Lock()
@@ -64,6 +87,7 @@ func (t *Tally) Len() (o int) {
 	t.mut.Unlock()
 	return
 }
+
 // Improve votes for feature which improved the overall result
 func (t *Tally) AddToImprove(feature uint32, vote int8) {
 	if vote == 0 {
@@ -102,7 +126,7 @@ func (t *Tally) AddToMapAll(feature uint16, output uint64, loss func(n uint32) u
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
-	t.mapping[feature][output] ++
+	t.mapping[feature][output]++
 	t.improvementPossible = true
 	t.mut.Unlock()
 }
@@ -113,7 +137,7 @@ func (t *Tally) AddToMapping(feature uint16, output uint64) {
 	if t.mapping[feature] == nil {
 		t.mapping[feature] = make(map[uint64]uint64)
 	}
-	t.mapping[feature][output] ++
+	t.mapping[feature][output]++
 	t.improvementPossible = true
 	t.mut.Unlock()
 }
@@ -154,4 +178,23 @@ func (t *Tally) Split() SplittedDataset {
 		}
 		return sett.Split()
 	}
+}
+
+// Dataset gets binary Dataset from tally
+func (t *Tally) Dataset() Dataset {
+	var sett Dataset
+	sett.Init()
+	// we initialize the set with pairs which improve first
+	for value, rating := range t.improve {
+		if rating != 0 {
+			sett[value] = rating > 0
+		}
+	}
+	// finally we overwrite the set with pairs which make it correct
+	for value, rating := range t.correct {
+		if rating != 0 {
+			sett[value] = rating > 0
+		}
+	}
+	return sett
 }

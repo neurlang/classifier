@@ -429,10 +429,11 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 		f.tally(io, tally4io{io: io, shift: 1}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
 			var ifeat, jfeat uint32
 			for k := byte(0); k < f.GetLastCells(); k++ {
-				ifeat |= i.Feature(int(k)) & 1 << k
-				jfeat |= j.Feature(int(k)) & 1 << k
+				ifeat |= (i.Feature(int(k)) & 1) << k
+				jfeat |= (j.Feature(int(k)) & 1) << k
 			}
-			return loss(ifeat, jfeat, (1<<f.GetLastCells())-1) != 0
+			//println(ifeat, jfeat)
+			return loss(ifeat, jfeat, (1<<f.GetLastCells()))>>1 != 0
 		})
 		return
 	}
@@ -484,6 +485,7 @@ func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst in
 // The tally is stored into thread safe structure Tally. Two ouputs i, j can be compared to be less
 // worse using the function less (returning true if output i is less worse than output j).
 func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
+
 	l := f.GetLayer(worst)
 	origin := in
 	preadd_input := in
@@ -511,6 +513,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		}
 		if f.premodulo[l] != 0 {
 			ifw = hash.Hash(ifw, uint32(f.GetPosition(worst)), f.premodulo[l])
+		} else if tally.IsGlobalPremodulo() {
+			spm := tally.GetGlobalSaltPremodulo()
+			ifw = hash.Hash(ifw, spm[0], spm[1])
 		}
 		for neg := 0; neg < 2; neg++ {
 			inter := in
@@ -547,14 +552,20 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		if !less(predicted[0], output) && !less(predicted[1], output) &&
 			!less(output, predicted[0]) && !less(output, predicted[1]) {
 			// we are correct anyway
+
 			return
 		}
+
+		if !less(predicted[0], predicted[1]) && !less(predicted[1], predicted[0]) {
+			// can't change
+
+			return
+		}
+
 		for neg := 0; neg < 2; neg++ {
 			if !less(predicted[neg], output) && !less(output, predicted[neg]) {
-
 				tally.AddToCorrect(ifw, compute[neg], neg == 1)
 				// shift to correct output
-
 				return
 			}
 		}
@@ -595,6 +606,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
+		} else if tally.IsGlobalPremodulo() {
+			spm := tally.GetGlobalSaltPremodulo()
+			ifeature = hash.Hash(uint32(ifeature), spm[0], spm[1])
 		}
 		if f.GetBits() == 1 {
 			if f.preadd[l] == preAddition {
@@ -624,6 +638,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
+		} else if tally.IsGlobalPremodulo() {
+			spm := tally.GetGlobalSaltPremodulo()
+			ifeature = hash.Hash(uint32(ifeature), spm[0], spm[1])
 		}
 		if f.preadd[l] == preAddition {
 			in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}

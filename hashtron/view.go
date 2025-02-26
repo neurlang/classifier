@@ -83,6 +83,8 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 	var open = []byte("[")
 	var clos = []byte("]")
 	var comm = []byte(",")
+	var minu = []byte("-")
+	var quot = []byte(`"`)
 	_, err := b.Write(open)
 	if err != nil {
 		return err
@@ -116,8 +118,15 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 			_, err = b.Write(intToBuf(v[1]))
 			sub = v[1]
 		} else {
-			if (sub < v[1]) {panic("fu");}
-			_, err = b.Write(intToBuf(sub - v[1]))
+			if sub < v[1] {
+				_, err = b.Write(minu)
+				if err != nil {
+					return err
+				}
+				_, err = b.Write(intToBuf(v[1] - sub))
+			} else {
+				_, err = b.Write(intToBuf(sub - v[1]))
+			}
 		}
 		if err != nil {
 			return err
@@ -132,6 +141,38 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 		}
 		xor = v[0]
 		sub = v[1]
+	}
+	if len(h.quaternary) > 0 {
+		if len(h.program) > 0 {
+			_, err = b.Write(comm)
+			if err != nil {
+				return err
+			}
+		}
+		_, err = b.Write(quot)
+		if err != nil {
+			return err
+		}
+		for _, by := range h.quaternary {
+			bytes := [2]byte{by >> 4, by & 15}
+			for _, d := range bytes {
+				if d < 10 {
+					_, err = b.Write([]byte{'0' + d})
+					if err != nil {
+						return err
+					}
+				} else {
+					_, err = b.Write([]byte{'a' + d - 10})
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+		_, err = b.Write(quot)
+		if err != nil {
+			return err
+		}
 	}
 	_, err = b.Write(clos)
 	if err != nil {
@@ -148,7 +189,7 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 func (h *Hashtron) ReadJson(b io.Reader) error {
 	var number, number0, number1, xor, add uint32
 	var buf [1]byte
-	var inside bool
+	var inside, neg, quot, qlast, isnum bool
 	h.program = nil
 	for {
 		_, err := b.Read(buf[0:1])
@@ -156,20 +197,53 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			return err
 		}
 		switch buf[0] {
+		case '"':
+			qlast = false
+			quot = !quot
+			number = 0
+			isnum = false
+		case '-':
+			neg = true
 		case '[':
 			inside = true
 			number = 0
+		case 'a', 'b', 'c', 'd', 'e', 'f':
+			number *= 16
+			number += uint32(buf[0] - 'a' + 10)
+			if qlast {
+				h.quaternary = append(h.quaternary, byte(number))
+				number = 0
+			}
+			qlast = !qlast
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			number *= 10
+			isnum = true
+			if quot {
+				number *= 16
+			} else {
+				number *= 10
+			}
 			number += uint32(buf[0] - '0')
+			if quot {
+				if qlast {
+					h.quaternary = append(h.quaternary, byte(number))
+					number = 0
+				}
+				qlast = !qlast
+			}
 		case ']':
 			if !inside {
 				if add == 0 {
 					add = number1
 				} else {
-					add -= number1
+					if neg {
+						add += number1
+					} else {
+						add -= number1
+					}
 				}
-				h.program = append(h.program, [2]uint32{number0 ^ xor, add})
+				if isnum {
+					h.program = append(h.program, [2]uint32{number0 ^ xor, add})
+				}
 				return nil
 			}
 			inside = false
@@ -180,16 +254,22 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 				if add == 0 {
 					add = number1
 				} else {
-					add -= number1
+					if neg {
+						add += number1
+					} else {
+						add -= number1
+					}
 				}
-				h.program = append(h.program, [2]uint32{number0 ^ xor, add})
+				if isnum {
+					h.program = append(h.program, [2]uint32{number0 ^ xor, add})
+				}
 				xor ^= number0
 			} else {
 				number0 = number
 			}
 			number = 0
+			neg = false
 		}
 	}
-
 	return nil
 }

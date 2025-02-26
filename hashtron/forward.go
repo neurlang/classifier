@@ -1,5 +1,6 @@
 package hashtron
 
+import "github.com/neurlang/quaternary"
 import "github.com/neurlang/classifier/hash"
 import "sort"
 
@@ -11,15 +12,26 @@ func (h Hashtron) Forward(sample uint32, negate bool) (out uint64) {
 			var s, max = h.Get(i)
 			input = hash.Hash(input, s, max)
 		}
-		input &= 1
+		input = h.Quaternary(input)
 		if negate {
 			input ^= 1
 		}
-		if input != 0 {
-			out |= 1 << j
-		}
+		out |= uint64(input) << j
 	}
 	return
+}
+
+func (h Hashtron) Quaternary(input uint32) uint32 {
+	if len(h.quaternary) > 0 {
+		if quaternary.Filter(h.quaternary).GetUint32(input) {
+			input = 1
+		} else {
+			input = 0
+		}
+	} else {
+		input &= 1
+	}
+	return input
 }
 
 type HashtronSlice []Hashtron
@@ -42,6 +54,7 @@ func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
 	var all = len(hs)
 	for i := range hs {
 		if hs[i].Bits() > 1 {
+			println(hs[i].Bits())
 			panic("multibit not supported yet on this path")
 		}
 		lengths_indices[i] = [2]uint32{uint32(hs[i].Len()), uint32(i)}
@@ -51,6 +64,10 @@ func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
 		return lengths_indices[i][0] > lengths_indices[j][0]
 	})
 	for j := range lengths_indices {
+		if lengths_indices[j][0] == 0 {
+			out[lengths_indices[j][1]] = uint16(hs[lengths_indices[j][1]].Quaternary(samples[lengths_indices[j][1]]))
+			all--
+		}
 		temps[j] = samples[lengths_indices[j][1]]
 	}
 	for i := uint32(0); i < lengths_indices[0][0]; i++ {
@@ -68,6 +85,7 @@ func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
 		}
 		hash.HashVectorizedDistinct(samples[:count_before], temps[:count_before], salts[:count_before], maxs[:count_before])
 		for j := count_after; j < count_before; j++ {
+			samples[j] = hs[lengths_indices[j][1]].Quaternary(samples[j])
 			out[lengths_indices[j][1]] = uint16(samples[j])
 			all--
 		}

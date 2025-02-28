@@ -198,6 +198,7 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 		}
 		switch buf[0] {
 		case '"':
+			inside = false
 			qlast = false
 			quot = !quot
 			number = 0

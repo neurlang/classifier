@@ -1,6 +1,7 @@
 package phonemizer
 
 import "github.com/neurlang/classifier/hash"
+import "github.com/jbarham/primegen"
 import (
 	"bufio"
 	"fmt"
@@ -8,6 +9,16 @@ import (
 	"strings"
 	//"encoding/json"
 )
+
+var Primes []uint32
+
+func init() {
+	var p = primegen.New()
+	for i := 0; i < 1024; i++ {
+		Primes = append(Primes, uint32(p.Next()))
+	}
+	//fmt.Println(Primes)
+}
 
 type NewSample struct {
 	SrcA   []string
@@ -19,6 +30,7 @@ type NewSample struct {
 	Len int
 	I int
 	J int
+	Dimension int
 }
 
 func hashSampler(v []string, m int, n uint32) string {
@@ -75,6 +87,40 @@ func (s *NewSampleV1) Parity() uint16 {
 	return (*NewSample)(s).Parity()
 }
 func (s *NewSampleV1) Output() uint16 {
+	return (*NewSample)(s).Output()
+}
+
+func (s *NewSample) V2(dimension int) *NewSampleV2 {
+	s.Dimension = dimension
+	return (*NewSampleV2)(s)
+}
+
+type NewSampleV2 NewSample
+
+func (s *NewSampleV2) Feature(n int) (ret uint32) {
+	pos := (n / 2) % (s.Dimension / 2)
+	if s.Parity() == 1 {
+		ret = 1 << 31
+	}
+	if n & 1 == 0 {
+		for ; pos < len((s.DstA)); pos += (s.Dimension/2) {
+			ret += uint32(hash.StringHash(uint32(n), s.DstA[pos])) + Primes[pos]
+		}
+		return
+
+	}
+	ret += uint32(hash.StringHash(uint32(n),s.Option)) + Primes[pos]
+	for ; pos < len((s.SrcA)); pos += (s.Dimension/2) {
+		ret += uint32(hash.StringHash(uint32(n),s.SrcA[pos])) + Primes[pos]
+	}
+	return
+}
+
+
+func (s *NewSampleV2) Parity() uint16 {
+	return uint16(len(s.SrcA) & 1)
+}
+func (s *NewSampleV2) Output() uint16 {
 	return (*NewSample)(s).Output()
 }
 
@@ -193,7 +239,7 @@ func loop(filename string, do func(string, string)) {
 	}
 }
 
-func NewDataset(filename string) (out map[[3]string]*NewSample) {
+func NewDataset(filename string, boosting bool) (out map[[3]string]*NewSample) {
 	out = make(map[[3]string]*NewSample)
 	var oneway = make(map[string]string)
 	var multiway = make(map[string]map[string]int)
@@ -237,6 +283,9 @@ func NewDataset(filename string) (out map[[3]string]*NewSample) {
 			for option, freq := range multiway[srcv] {
 				if freq >= okfreq {
 					j := len(srca) - i
+					if !boosting && j > 0 {
+						j = 1
+					}
 					for q := 0; q < j; q++ {
 						s := &NewSample{
 							SrcA: copystrings(srca[:len(srca)-q]),

@@ -1,6 +1,6 @@
 package phonemizer
 
-import "github.com/neurlang/classifier/hash"
+//import "github.com/neurlang/classifier/hash"
 import (
 	"fmt"
 	"sort"
@@ -10,17 +10,32 @@ type AregSample struct {
 	Src string
 	Dst string
 	Accept bool
+	Dimension int
 }
 
-func (s *AregSample) Feature(n int) uint32 {
-	if n & 1 == 1 {
-		return hash.StringHash(hash.StringHash(uint32(n), s.Dst), s.Src)
+func (s *AregSample) Feature(n int) (ret uint32) {
+	pos := (n / 2) % (s.Dimension / 2)
+	var shift byte
+	for shift = 0; uint32(uint32(s.Dimension << shift) >> shift) == uint32(s.Dimension); shift++ {}
+	if s.Parity() == 1 {
+		ret = 1 << 31
 	}
-	return hash.StringHash(hash.StringHash(uint32(n), s.Src), s.Dst)
+	ret |= uint32(pos) << shift
+	if n & 1 == 0 {
+		for ; pos < len([]rune(s.Dst)); pos += (s.Dimension/2) {
+			ret += uint32([]rune(s.Dst)[pos]) + Primes[pos]
+		}
+		return
+
+	}
+	for ; pos < len([]rune(s.Src)); pos += (s.Dimension/2) {
+		ret += uint32([]rune(s.Src)[pos]) + Primes[pos]
+	}
+	return
 }
 
 func (s *AregSample) Parity() uint16 {
-	return 0
+	return uint16(len(s.Src) & 1)
 }
 func (s *AregSample) Output() uint16 {
 	if s.Accept {
@@ -69,7 +84,7 @@ func NewDatasetAreg(filename, otherfilename string, reverse bool, histogram []st
 		if reverse {
 			src, dst = dst, src
 		}
-		for i := 0; i < 32; i++ {
+		for i := 0; i < 1; i++ {
 			s := &AregSample{
 				Src: src,
 				Dst: fmt.Sprint(i),
@@ -83,7 +98,7 @@ func NewDatasetAreg(filename, otherfilename string, reverse bool, histogram []st
 		if reverse {
 			src, dst = dst, src
 		}
-		for i := 0; i < 32; i++ {
+		for i := 0; i < 1; i++ {
 			s := &AregSample{
 				Src: src,
 				Dst: fmt.Sprint(i),

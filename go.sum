@@ -58,6 +58,8 @@ github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorgonia/bindgen v0.0.0-20180812032444-09626750019e/go.mod h1:YzKk63P9jQHkwAo2rXHBv02yPxDzoQT2cBV0x5bGV/8=
 github.com/gorgonia/bindgen v0.0.0-20210223094355-432cd89e7765/go.mod h1:BLHSe436vhQKRfm6wxJgebeK4fDY+ER/8jV3vVH9yYU=
+github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0 h1:1icIF7p+KYk5pJ2f9kv2xZy8HxNXoWj2PkKO0EovqTE=
+github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0/go.mod h1:Airb7uqSrSAayrH8p4ZE/b6QfKuoWMv7WoSfMtF/3Lc=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
@@ -71,8 +73,6 @@ github.com/leesper/go_rng v0.0.0-20171009123644-5344a9259b21/go.mod h1:N0SVk0uhy
 github.com/mattn/go-colorable v0.1.8/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/mattn/go-runewidth v0.0.4/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
-github.com/neurlang/quaternary v0.1.0 h1:cDtvp6K4F8x0s24XSY6C5Gf3lt3nyxpTe5H662ibY3A=
-github.com/neurlang/quaternary v0.1.0/go.mod h1:yP32mjSy4ataxp2pwQ+RXUQoD0byfW50vzBjXs8GY5Y=
 github.com/neurlang/quaternary v0.1.1 h1:9pF/dTDM+KWHuDTlv0AN1RTS30Q3ekys1B0nNRU8f0w=
 github.com/neurlang/quaternary v0.1.1/go.mod h1:yP32mjSy4ataxp2pwQ+RXUQoD0byfW50vzBjXs8GY5Y=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

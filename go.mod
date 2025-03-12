@@ -9,4 +9,11 @@ require (
 	gorgonia.org/cu v0.9.6
 )
 
-require github.com/neurlang/quaternary v0.1.1 // indirect
+require github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0
+
+require (
+	github.com/google/uuid v1.1.1 // indirect
+	github.com/neurlang/quaternary v0.1.1
+	github.com/pkg/errors v0.9.1 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+)

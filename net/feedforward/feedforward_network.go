@@ -412,7 +412,7 @@ func (io tally4io) Feature(n int) uint32 {
 	return (uint32(io.io.Output()) ^ uint32(io.io.Parity())) >> (n * io.shift)
 }
 
-// Tally3 tallies the network on ParityInOutput, tuning the worst-th hashtron
+// Tally4 tallies the network on ParityInOutput, tuning the worst-th hashtron
 // in the network f storing data in tally. Loss can be nil if predicting power of 2 classes,
 // or an actual minus expected difference or any other loss (0 means correct).
 func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst int, tally *datasets.Tally,

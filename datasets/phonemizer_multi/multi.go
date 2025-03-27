@@ -286,9 +286,15 @@ func NewDataset(dir string) (ret []Sample) {
 			sort.SliceStable(array, func(i, j int) bool {
 				return array[i][0] < array[j][0]
 			})
+			var sol uint32
+			if dstv[i] == "_" {
+				sol = array[0][0]
+			} else {
+				sol = hash.StringHash(0, dstv[i])
+			}
 			t := Token{
 				Homograph: hash.StringHash(0, srcv[i]),
-				Solution: hash.StringHash(0, dstv[i]),
+				Solution: sol,
 				Choices: array,
 			}
 			s.Sentence = append(s.Sentence, t)

@@ -87,14 +87,14 @@ func (s *SampleSentenceIO) Feature(n int) (ret uint32) {
 	}
 	if n % 3 == 0 {
 		for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension/3) {
-			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Homograph) + Primes[pos]
+			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Homograph)
 		}
 		return
 
 	}
 	for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension/3) {
 		if pos < s.SampleSentence.position {
-			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Solution) + Primes[pos]
+			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Solution)
 		} else if pos == s.SampleSentence.position {
 			choice := s.SampleSentence.Sample.Sentence[pos].Choices[s.choice]
 			// Compare current choice with context
@@ -103,16 +103,14 @@ func (s *SampleSentenceIO) Feature(n int) (ret uint32) {
 			} else if n%3 == 2 {
 				ret += uint32(choice[0]) // Value
 			}
-			ret += Primes[pos]
-		} else {
-			ret += Primes[pos]
 		}
 	}
 	return
 }
 
 func (s *SampleSentenceIO) Parity() (ret uint16) {
-	return 0
+	//return 0
+	return uint16(len(s.SampleSentence.Sample.Sentence) & 1)
 }
 func (s *SampleSentenceIO) Output() (ret uint16) {
 	if (s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Choices[s.choice][0] == s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Solution) {
@@ -275,14 +273,6 @@ func NewDataset(dir string) (ret []Sample) {
 				num, _ := strconv.Atoi(v[1])
 				array = append(array, [2]uint32{hash.StringHash(0, v[0]), uint32(num)})
 			}
-			fmt.Println(array)
-			for p := len(array)-1; p >= 0; p-- {
-			for q := p-1; q >= 0; q-- {
-				if array[p][1] == array[q][1] {
-					array[q][1]++
-				}
-			}}
-			fmt.Println(array)
 			sort.SliceStable(array, func(i, j int) bool {
 				return array[i][0] < array[j][0]
 			})
@@ -299,7 +289,7 @@ func NewDataset(dir string) (ret []Sample) {
 			}
 			s.Sentence = append(s.Sentence, t)
 		}
-		fmt.Println(s)
+		fmt.Println(src, s)
 		ret = append(ret, s)
 	})
 	return

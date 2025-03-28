@@ -5,7 +5,6 @@ import "sync/atomic"
 import "fmt"
 import "runtime"
 import "flag"
-import "strings"
 import "math/rand"
 import "time"
 
@@ -66,7 +65,11 @@ func main() {
 	var net feedforward.FeedforwardNetwork
 	net.NewLayer(fanout1*fanout2, 0)
 	for i := 0; i < fanout3; i++ {
-		net.NewCombiner(crossattention.MustNew3(fanout1, fanout2))
+		if i == 0 {
+			net.NewCombiner(crossattention.MustNew3(fanout1, fanout2))
+		} else {
+			net.NewCombiner(crossattention.MustNew3(fanout1, fanout2))
+		}
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
 		net.NewCombiner(sochastic.MustNew(fanout1*fanout2, 8*byte(i), uint32(i)))
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
@@ -181,10 +184,9 @@ func main() {
 			}
 		}
 
-		if dstmodel != nil && len(*dstmodel) > 0 && improved_success_rate < success {
+		if dstmodel != nil && len(*dstmodel) > 0 && (improved_success_rate < success || success == 99) {
 			if improved_success_rate > 0 {
-				model := strings.ReplaceAll(*dstmodel, "weights1", "weights4")
-				err := net.WriteZlibWeightsToFile(model)
+				err := net.WriteZlibWeightsToFile(*dstmodel)
 				if err != nil {
 					println(err.Error())
 				}
@@ -199,9 +201,7 @@ func main() {
 		return success, h.Sum()
 	}
 	if resume != nil && *resume && dstmodel != nil {
-		model := strings.ReplaceAll(*dstmodel, "weights1", "weights4")
-	
-		err := net.ReadZlibWeightsFromFile(model)
+		err := net.ReadZlibWeightsFromFile(*dstmodel)
 		if err != nil {
 			println(err.Error())
 		}

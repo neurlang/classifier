@@ -7,43 +7,67 @@ func (f *CrossAttention) Put(n int, v bool) {
 
 // Feature returns the n-th feature from the combiner. Next layer reads
 // its inputs using this method for hashtron n in the next layer.
+
 func (f *CrossAttention) Feature(n int) (o uint32) {
 	if f.qkv {
-		iov := n % 3
-		dim := f.dim
-		beginhead := (n / dim) * dim
+		iov := n % 3 // 0=Query, 1=Key, 2=Value
+		headSize := f.dim * 3
+		headStart := (n / headSize) * headSize
+		currentPos := (n % headSize) / 3 // Position within head
 
-		if iov == 2 {
-			// Handle the value position
-			for x := 0; x < dim; x += 3 {
-				query := f.vec[beginhead + x]      // Get the query
-				key := f.vec[beginhead + x + 1]    // Get the key
-				me := f.vec[n]                     // Current value
-				if query && key && me {
+		// Query positions - never masked
+		if iov == 0 {
+			for x := 0; x < f.dim; x += 3 {
+				// Mask future positions for keys/values
+				if f.use_masking && (x/3) > currentPos {
+					continue
+				}
+				query := f.vec[headStart+x+0]
+				key := f.vec[headStart+x+1]
+				val := f.vec[headStart+x+2]
+				if query && key && val {
 					o++
 				}
 			}
-		} else {
-			// Handle query and key positions
-			for x := 0; x < dim; x += 3 {
-				others := f.vec[beginhead + x + iov] // Get the query or key based on iov
-				value := f.vec[beginhead + x + 2]    // Get the value
-				me := f.vec[n]                       // Current query or key
-				if others && me == value {
+			return
+		}
+
+		// Key/Value positions - apply masking
+		for x := 0; x < f.dim; x += 3 {
+			queryPos := headStart + x
+			nPos := n
+			// Mask future positions for keys/values
+			if f.use_masking && (x/3) > currentPos {
+				continue
+			}
+
+			if iov == 1 { // Key matching
+				if f.vec[queryPos] && f.vec[nPos] == f.vec[queryPos+2] {
+					o++
+				}
+			} else { // Value aggregation
+				if f.vec[queryPos] && f.vec[queryPos+1] && f.vec[nPos] {
 					o++
 				}
 			}
 		}
-		return o
+		return
 	}
 
+	// --- Original KeyValue Mode ---
 	iov := n & 1
 	dim := f.dim
 	beginhead := (n / dim) * dim
+	currentPos := n % dim // Position within the current head
+
 	for x := iov ^ 1; x < dim; x += 2 {
-		others := f.vec[beginhead + x]
-		me := f.vec[n]
-		if others && me {
+		if f.use_masking {
+			// Mask future in KeyValue mode
+			if (x / 2) > currentPos {
+				continue
+			}
+		}
+		if f.vec[beginhead+x] && f.vec[n] {
 			o++
 		}
 	}

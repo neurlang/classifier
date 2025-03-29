@@ -1,31 +1,33 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"runtime"
+	"sync/atomic"
+	"time"
+
+	"github.com/neurlang/classifier/datasets"
+	"github.com/neurlang/classifier/datasets/phonemizer"
+	"github.com/neurlang/classifier/hashtron"
+	"github.com/neurlang/classifier/layer/crossattention"
+	"github.com/neurlang/classifier/layer/sochastic"
+	"github.com/neurlang/classifier/layer/sum"
+	"github.com/neurlang/classifier/net/feedforward"
+	"github.com/neurlang/classifier/parallel"
+	"github.com/neurlang/quaternary"
 )
 
-import "os"
-import "sync/atomic"
-import "fmt"
-import "runtime"
-import "flag"
-import "math/rand"
-import "time"
-
-import "github.com/neurlang/classifier/datasets/phonemizer"
 //import "github.com/neurlang/classifier/layer/majpool2d"
-import "github.com/neurlang/classifier/layer/sum"
-import "github.com/neurlang/classifier/layer/sochastic"
+
 //import "github.com/neurlang/classifier/layer/parity"
-import "github.com/neurlang/classifier/layer/crossattention"
-import "github.com/neurlang/classifier/datasets"
-import "github.com/neurlang/classifier/hashtron"
+
 //import "github.com/neurlang/classifier/learning"
-import "github.com/neurlang/quaternary"
-import "github.com/neurlang/classifier/net/feedforward"
-import "github.com/neurlang/classifier/parallel"
 
 func error_abs(a, b uint32) (out uint32) {
 	xor := a ^ b
@@ -62,7 +64,7 @@ func write_histogram(langjson string, histogram []string) {
 		fmt.Println("Error marshalling JSON:", err)
 		return
 	}
-	
+
 	updatedData = bytes.ReplaceAll(updatedData, []byte(`"],"`), []byte("\"],\n\""))
 
 	// Step 5: Write the updated JSON back to the file
@@ -75,7 +77,7 @@ func write_histogram(langjson string, histogram []string) {
 }
 
 func main() {
-	dirtytsv := flag.String("dirtytsv", "", "dirty tsv dataset for the language")
+	lexicontsv := flag.String("lexicontsv", "", "lexicon tsv dataset for the language")
 	learntsv := flag.String("learntsv", "", "learn tsv dataset for the language")
 	langjson := flag.String("langjson", "", "language.json for the language to write histogram")
 	premodulo := flag.Int("premodulo", 0, "premodulo")
@@ -92,7 +94,7 @@ func main() {
 
 	var improved_success_rate = 0
 
-	if dirtytsv == nil || *dirtytsv == "" {
+	if lexicontsv == nil || *lexicontsv == "" {
 		println("clean tsv is mandatory")
 		return
 	}
@@ -106,15 +108,15 @@ func main() {
 	}
 
 	histogram := phonemizer.NewHistogram(*learntsv, reverse != nil && *reverse)
-	
+
 	if langjson != nil && *langjson != "" {
 		write_histogram(*langjson, histogram)
 	}
-	
+
 	fmt.Println(histogram)
 
-	data := phonemizer.SplitAreg(phonemizer.NewDatasetAreg(*learntsv, *dirtytsv, reverse != nil && *reverse, histogram))
-	
+	data := phonemizer.SplitAreg(phonemizer.NewDatasetAreg(*learntsv, *lexicontsv, reverse != nil && *reverse, histogram))
+
 	if len(data) == 0 {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
 		return
@@ -123,7 +125,7 @@ func main() {
 	const fanout1 = 16
 	const fanout2 = 2
 	const fanout3 = 3
-	
+
 	var net feedforward.FeedforwardNetwork
 	net.NewLayer(fanout1*fanout2, 0)
 	for i := 0; i < fanout3; i++ {
@@ -134,9 +136,8 @@ func main() {
 	}
 	net.NewCombiner(sochastic.MustNew(fanout1*fanout2, 32, fanout3))
 	net.NewLayer(fanout1*fanout2, 0)
-	net.NewCombiner(sum.MustNew([]uint{fanout1*fanout2}, 0))
+	net.NewCombiner(sum.MustNew([]uint{fanout1 * fanout2}, 0))
 	net.NewLayer(1, 0)
-
 
 	trainWorst := func(worst int) func() {
 		var tally = new(datasets.Tally)
@@ -148,7 +149,7 @@ func main() {
 		if minpremodulo != nil && *minpremodulo > 0 && maxpremodulo != nil && *maxpremodulo > 0 {
 			const span = 50 * 50
 			value := (100 - improved_success_rate) * (100 - improved_success_rate)
-			premodulo := value * ( *minpremodulo - *maxpremodulo ) / span + *maxpremodulo
+			premodulo := value*(*minpremodulo-*maxpremodulo)/span + *maxpremodulo
 			//println(improved_success_rate, premodulo)
 			if premodulo < 2 {
 				premodulo = 2
@@ -161,17 +162,17 @@ func main() {
 			rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
 			parts = *part
 		}
-		
+
 		parallel.ForEach(len(data)/parts, 1000, func(jjj int) {
 			{
-					var io = data[jjj]
-					
-					io.Dimension = fanout1
+				var io = data[jjj]
 
-					net.Tally4(&io, worst, tally, nil)
+				io.Dimension = fanout1
+
+				net.Tally4(&io, worst, tally, nil)
 			}
 		})
-		
+
 		if !tally.GetImprovementPossible() {
 			return nil
 		}
@@ -194,7 +195,7 @@ func main() {
 		tally.Free()
 		runtime.GC()
 
-		return func(){
+		return func() {
 			*ptr = backup
 		}
 	}
@@ -212,17 +213,17 @@ func main() {
 				io.Dimension = fanout1
 
 				var predicted = net.Infer2(&io) & 1
-						
+
 				h.MustPutUint16(j, predicted)
-				
+
 				if predicted == io.Output() {
 					percent.Add(1)
 				}
 				errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
 			}
 		})
-		success := 100 * int(percent.Load()) / (len(data)/parts)
-		println("[success rate]", success, "%", "with", uint64(parts) * errsum.Load(), "errors")
+		success := 100 * int(percent.Load()) / (len(data) / parts)
+		println("[success rate]", success, "%", "with", uint64(parts)*errsum.Load(), "errors")
 
 		if dstmodel == nil || *dstmodel == "" {
 			err := net.WriteZlibWeightsToFile("output." + fmt.Sprint(success) + ".json.t.lzw")

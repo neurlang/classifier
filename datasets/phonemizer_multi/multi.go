@@ -1,19 +1,19 @@
 package phonemizer_multi
 
-import "github.com/jbarham/primegen"
-import (
-	"github.com/neurlang/classifier/hash"
-	"encoding/json"
-	"sort"
-	"strconv"
-)
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
-	//"encoding/json"
+
+	"github.com/jbarham/primegen"
+	"github.com/neurlang/classifier/hash"
 )
+
+//"encoding/json"
 
 var Primes []uint32
 
@@ -45,15 +45,15 @@ func (t *Token) Len() int {
 
 func (s *Sample) V1(dim, pos int) SampleSentence {
 	return SampleSentence{
-		Sample: s,
-		position: pos,
+		Sample:    s,
+		position:  pos,
 		dimension: dim,
 	}
 }
 
 type SampleSentence struct {
-	Sample *Sample
-	position int
+	Sample    *Sample
+	position  int
 	dimension int
 }
 
@@ -66,13 +66,13 @@ func (s *SampleSentence) Len() int {
 
 type SampleSentenceIO struct {
 	SampleSentence *SampleSentence
-	choice int
+	choice         int
 }
 
 func (s *SampleSentence) IO(n int) (ret *SampleSentenceIO) {
 	return &SampleSentenceIO{
 		SampleSentence: s,
-		choice: n,
+		choice:         n,
 	}
 }
 
@@ -85,14 +85,14 @@ func (s *SampleSentenceIO) Feature(n int) (ret uint32) {
 	if s.Parity() == 1 {
 		ret = 1 << 31
 	}
-	if n % 3 == 0 {
-		for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension/3) {
+	if n%3 == 0 {
+		for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension / 3) {
 			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Homograph)
 		}
 		return
 
 	}
-	for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension/3) {
+	for ; pos < len((s.SampleSentence.Sample.Sentence)); pos += (s.SampleSentence.dimension / 3) {
 		if pos < s.SampleSentence.position {
 			ret += uint32(s.SampleSentence.Sample.Sentence[pos].Solution)
 		} else if pos == s.SampleSentence.position {
@@ -113,7 +113,7 @@ func (s *SampleSentenceIO) Parity() (ret uint16) {
 	return uint16(len(s.SampleSentence.Sample.Sentence) & 1)
 }
 func (s *SampleSentenceIO) Output() (ret uint16) {
-	if (s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Choices[s.choice][0] == s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Solution) {
+	if s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Choices[s.choice][0] == s.SampleSentence.Sample.Sentence[s.SampleSentence.position].Solution {
 		return 1
 	}
 	return 0
@@ -159,7 +159,6 @@ func loop(filename string, do func(string, string, string)) {
 	}
 }
 
-
 func addTags(bag map[uint32]string, tags ...string) map[uint32]string {
 	for _, v := range tags {
 		bag[hash.StringHash(0, v)] = v
@@ -202,13 +201,12 @@ func serializeTags(tags map[uint32]string) (key uint32, ret string) {
 	return
 }
 
-
 func NewDataset(dir string) (ret []Sample) {
 
 	var tags = make(map[uint32]string)
 	var m = make(map[string]map[string]uint32)
 
-	loop(dir + string(os.PathSeparator) + "dirty.tsv", func(src string, dst, tag string) {
+	loop(dir+string(os.PathSeparator)+"lexicon.tsv", func(src string, dst, tag string) {
 		if _, ok := m[src]; !ok {
 			m[src] = make(map[string]uint32)
 		}
@@ -232,7 +230,7 @@ func NewDataset(dir string) (ret []Sample) {
 		}
 	})
 
-	loop(dir + string(os.PathSeparator) + "multi.tsv", func(src string, dst, _ string) {
+	loop(dir+string(os.PathSeparator)+"multi.tsv", func(src string, dst, _ string) {
 		srcv := strings.Split(src, " ")
 		dstv := strings.Split(dst, " ")
 		if len(srcv) != len(dstv) {
@@ -249,7 +247,7 @@ func NewDataset(dir string) (ret []Sample) {
 				fmt.Println("ERROR: Word not in dict:", srcv[i], dstv[i])
 				t := Token{
 					Homograph: hash.StringHash(0, srcv[i]),
-					Solution: 0,
+					Solution:  0,
 				}
 				s.Sentence = append(s.Sentence, t)
 				continue
@@ -284,8 +282,8 @@ func NewDataset(dir string) (ret []Sample) {
 			}
 			t := Token{
 				Homograph: hash.StringHash(0, srcv[i]),
-				Solution: sol,
-				Choices: array,
+				Solution:  sol,
+				Choices:   array,
 			}
 			s.Sentence = append(s.Sentence, t)
 		}

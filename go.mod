@@ -11,6 +11,8 @@ require (
 
 require github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0
 
+require github.com/neurlang/NumToWordsGo v0.0.0-20250407021724-7b23483906ba // indirect
+
 require (
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/neurlang/quaternary v0.1.1

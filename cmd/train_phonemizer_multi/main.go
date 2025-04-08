@@ -106,7 +106,7 @@ func main() {
 		
 		parallel.ForEach(len(data)/parts, 1000, func(jjj int) {
 			for i := 0; i < fanout1; i++ {
-				var sample = data[jjj].V1(fanout1, i)
+				var sample = data[jjj].V2(fanout1, i)
 				for j := 0; j < sample.Len(); j++ {
 					var io = sample.IO(j)
 
@@ -153,7 +153,7 @@ func main() {
 			var pred uint16
 		
 			for i := 0; i < fanout1; i++ {
-				var sample = data[j].V1(fanout1, i)
+				var sample = data[j].V2(fanout1, i)
 				for jj := 0; jj < sample.Len(); jj++ {
 					var io = sample.IO(jj)
 				

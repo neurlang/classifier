@@ -8,22 +8,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"slices"
 
-	"github.com/jbarham/primegen"
 	"github.com/neurlang/classifier/hash"
+
+	"github.com/neurlang/NumToWordsGo/NumToWords"
 )
 
-//"encoding/json"
-
-var Primes []uint32
-
-func init() {
-	var p = primegen.New()
-	for i := 0; i < 1024; i++ {
-		Primes = append(Primes, uint32(p.Next()))
-	}
-	//fmt.Println(Primes)
-}
 
 // Sample is one sentence
 type Sample struct {
@@ -48,6 +40,15 @@ func (s *Sample) V1(dim, pos int) SampleSentence {
 		Sample:    s,
 		position:  pos,
 		dimension: dim,
+		version:   1,
+	}
+}
+func (s *Sample) V2(dim, pos int) SampleSentence {
+	return SampleSentence{
+		Sample:    s,
+		position:  pos,
+		dimension: dim,
+		version:   2,
 	}
 }
 
@@ -55,6 +56,7 @@ type SampleSentence struct {
 	Sample    *Sample
 	position  int
 	dimension int
+	version   byte
 }
 
 func (s *SampleSentence) Len() int {
@@ -102,6 +104,15 @@ func (s *SampleSentenceIO) Feature(n int) (ret uint32) {
 				ret += uint32(choice[1]) // Key
 			} else if n%3 == 2 {
 				ret += uint32(choice[0]) // Value
+			}
+		} else if s.SampleSentence.version >= 2 {
+			for _, choice := range s.SampleSentence.Sample.Sentence[pos].Choices {
+				// Compare future shifted choice with context
+				if n%3 == 1 {
+					ret += uint32(choice[1]) >> 16 // Key
+				} else if n%3 == 2 {
+					ret += uint32(choice[0]) >> 16 // Value
+				}
 			}
 		}
 	}
@@ -201,6 +212,18 @@ func serializeTags(tags map[uint32]string) (key uint32, ret string) {
 	return
 }
 
+func isAllDigits(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
+}
+
 func NewDataset(dir string) (ret []Sample) {
 
 	var tags = make(map[uint32]string)
@@ -230,6 +253,8 @@ func NewDataset(dir string) (ret []Sample) {
 		}
 	})
 
+	var is_english = strings.Contains(dir, "english")
+
 	loop(dir+string(os.PathSeparator)+"multi.tsv", func(src string, dst, _ string) {
 		srcv := strings.Split(src, " ")
 		dstv := strings.Split(dst, " ")
@@ -238,6 +263,27 @@ func NewDataset(dir string) (ret []Sample) {
 			return
 		}
 		var s Sample
+		for i := 0; i < len(srcv); i++ {
+
+			if is_english {
+				var is_numeric = isAllDigits(srcv[i])
+				if is_numeric {
+					num, err1 := strconv.Atoi(srcv[i])
+					if err1 == nil {
+						sentence, err2 := NumToWords.Convert(num, "en")
+						if err2 == nil {
+							fields := strings.Fields(sentence)
+							srcv = slices.Delete(srcv, i, i+1)
+							dstv = slices.Delete(dstv, i, i+1)
+							srcv = slices.Insert(srcv, i, fields...)
+							for range fields {
+								dstv = slices.Insert(dstv, i, "_")
+							}
+						}
+					}
+				}
+			}
+		}
 		for i := range srcv {
 			var one = srcv[i] == "_" || dstv[i] == "_"
 			if !one {

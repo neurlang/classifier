@@ -74,6 +74,38 @@ func (s *Sample) Output() (ret uint16) {
 	return 0
 }
 
+type Sample2 struct {
+	Sample
+}
+
+func (s *Sample2) Len() int {
+	return s.Sample.Len()
+}
+
+func (s *Sample2) Alls() (ret []uint32) {
+	return s.Sample.Alls()
+}
+
+func (s *Sample2) SetOutput(n uint32) {
+	s.Sample.SetOutput(n)
+}
+
+func (s *Sample2) Feature(n int) (ret uint32) {
+	return s.Sample.Feature(n)
+}
+
+func (s *Sample2) Parity() uint16 {
+	return 0
+}
+
+func (s *Sample2) Output() uint16 {
+	// last Target is correct token
+	if s.Sample.Candidate <= s.Sample.Target[len(s.Sample.Target)-1] {
+		return 1
+	}
+	return 0
+}
+
 func loop(filename string, do func(string, string)) {
 	// Open the file
 	file, err := os.Open(filename)
@@ -140,6 +172,45 @@ func NewDataset(file string, dimension int) (ret []Sample) {
 				Target:    dst_uints[:i+1],
 				Dim:       dimension,
 				Incorrect: sharedMaps[sharedmapkey],
+			}
+			ret = append(ret, s)
+		}
+	})
+	return
+}
+
+func NewDataset2(file string, dimension int) (ret []Sample2) {
+	var sharedMaps = make(map[int]*map[uint32]struct{})
+	loop(file, func(src, dst string) {
+		dst_toks := strings.Split(dst, " ")
+		var dst_uints = make([]uint32, (len(dst_toks)+1)/2, (len(dst_toks)+1)/2)
+		src_toks := []rune(src)
+		for i, tok := range dst_toks {
+			n, _ := strconv.Atoi(tok)
+			shift := (1 - (i % 2)) * 15 // Reverse the shift direction
+			dst_uints[i/2] |= uint32(n+1) << shift
+		}
+		for i, n := range dst_uints {
+			var sharedmapkey int
+			if i == 0 {
+				sharedmapkey = -int(src_toks[0])
+			} else {
+				sharedmapkey = int(dst_uints[i-1])
+			}
+
+			if sharedMaps[sharedmapkey] == nil {
+				var mapping = make(map[uint32]struct{})
+				sharedMaps[sharedmapkey] = &mapping
+			}
+			(*sharedMaps[sharedmapkey])[n] = struct{}{}
+			s := Sample2{
+				Sample{
+					Candidate: n,
+					Source:    src_toks,
+					Target:    dst_uints[:i+1],
+					Dim:       dimension,
+					Incorrect: sharedMaps[sharedmapkey],
+				},
 			}
 			ret = append(ret, s)
 		}

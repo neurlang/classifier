@@ -57,7 +57,7 @@ func main() {
 	const fanout2 = 4
 	const fanout3 = 4
 
-	data := speak.NewDataset(*cleantsv, fanout1)
+	data := speak.NewDataset2(*cleantsv, fanout1)
 
 	if len(data) == 0 {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")

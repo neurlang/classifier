@@ -285,25 +285,35 @@ func NewDataset(dir string) (ret []Sample) {
 			}
 		}
 		for i := range srcv {
+			if srcv[i] == "" && dstv[i] == "" {
+				continue
+			}
 			var one = srcv[i] == "_" || dstv[i] == "_"
 			if !one {
-				println("LEXICON:", srcv[i], dstv[i])
+				//println("LEXICON:", srcv[i], dstv[i])
 			}
 			if len(m[srcv[i]]) == 0 {
 				fmt.Println("ERROR: Word not in dict:", srcv[i], dstv[i])
-				t := Token{
-					Homograph: hash.StringHash(0, srcv[i]),
-					Solution:  0,
-				}
-				s.Sentence = append(s.Sentence, t)
-				continue
+				return
 			}
-			if len(m[srcv[i]]) == 1 != one {
+			if len(m[srcv[i]]) != 1 && one {
 				fmt.Println("ERROR: Word does not have one spoken form:", srcv[i], dstv[i])
 				for k, v := range m[srcv[i]] {
 					println(k, v, tags[v])
 				}
 				println()
+			}
+			// 2) Check that goldIPA matches one of the lexicon keys
+			found := false
+			for spokenForm := range m[srcv[i]] {
+				if spokenForm == dstv[i] {
+					found = true
+					break
+				}
+			}
+			if !found && dstv[i] != "_" {
+				fmt.Println("ERROR: gold pronunciation not in choices for", srcv[i], dstv[i])
+				return
 			}
 			var strkey [][2]string
 			for k, v := range m[srcv[i]] {
@@ -333,8 +343,9 @@ func NewDataset(dir string) (ret []Sample) {
 			}
 			s.Sentence = append(s.Sentence, t)
 		}
-		fmt.Println(src, s)
+		//fmt.Println(file, src, s)
 		ret = append(ret, s)
 	})
+
 	return
 }

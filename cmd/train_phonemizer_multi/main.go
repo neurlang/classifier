@@ -58,9 +58,9 @@ func main() {
 		return
 	}
 
-	const fanout1 = 48
-	const fanout2 = 4
-	const fanout3 = 3
+	const fanout1 = 24
+	const fanout2 = 1
+	const fanout3 = 8
 	
 	var net feedforward.FeedforwardNetwork
 	net.NewLayer(fanout1*fanout2, 0)
@@ -71,7 +71,7 @@ func main() {
 			net.NewCombiner(crossattention.MustNew3(fanout1, fanout2))
 		}
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
-		net.NewCombiner(sochastic.MustNew(fanout1*fanout2, 8*byte(i), uint32(i)))
+		net.NewCombiner(sochastic.MustNew(fanout1*fanout2, 4*byte(i), uint32(i)))
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
 	}
 	net.NewCombiner(sochastic.MustNew(fanout1*fanout2, 32, fanout3))

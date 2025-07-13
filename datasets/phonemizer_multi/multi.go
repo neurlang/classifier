@@ -252,9 +252,19 @@ func NewDataset(dir string) (ret []Sample) {
 			tags[tagkey] = tagjson
 		}
 	})
+	// lexicon consistency verification
+	for k, v := range m {
+		var set = make(map[uint32]string)
+		for q, w := range v {
+			if qq, ok := set[w]; ok {
+				fmt.Println("ERROR: tag collision for '" + k + "': '" + qq + "' vs '" + q + "'")
+			}
+			set[w] = q
+		}
+	}
 
 	var is_english = strings.Contains(dir, "english")
-
+	///file, _ := os.Create("/tmp/dump.txt")
 	loop(dir+string(os.PathSeparator)+"multi.tsv", func(src string, dst, _ string) {
 		srcv := strings.Split(src, " ")
 		dstv := strings.Split(dst, " ")
@@ -343,9 +353,9 @@ func NewDataset(dir string) (ret []Sample) {
 			}
 			s.Sentence = append(s.Sentence, t)
 		}
-		//fmt.Println(file, src, s)
+		///fmt.Fprintln(file, src, s)
 		ret = append(ret, s)
 	})
-
+	///file.Close()
 	return
 }

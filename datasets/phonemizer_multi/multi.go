@@ -229,7 +229,7 @@ func NewDataset(dir string) (ret []Sample) {
 	var tags = make(map[uint32]string)
 	var m = make(map[string]map[string]uint32)
 
-	loop(dir+string(os.PathSeparator)+"lexicon.tsv", func(src string, dst, tag string) {
+	lexiconRowHandler := func(src string, dst, tag string) {
 		if _, ok := m[src]; !ok {
 			m[src] = make(map[string]uint32)
 		}
@@ -251,7 +251,10 @@ func NewDataset(dir string) (ret []Sample) {
 			m[src][dst] = tagkey
 			tags[tagkey] = tagjson
 		}
-	})
+	}
+
+	loop(dir+string(os.PathSeparator)+"lexicon.tsv", lexiconRowHandler)
+	loop(dir+string(os.PathSeparator)+"abbr.tsv", lexiconRowHandler)
 	// lexicon consistency verification
 	for k, v := range m {
 		var set = make(map[uint32]string)

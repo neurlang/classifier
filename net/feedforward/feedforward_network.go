@@ -69,6 +69,16 @@ func (f FeedforwardNetwork) LenLayers() int {
 	return len(f.layers)
 }
 
+// LenHashtronLayers returns the number of hashtron layers. Each Layer (not Combiner) counts as a layer here.
+func (f FeedforwardNetwork) LenHashtronLayers() (l int) {
+	for _, v := range f.layers {
+		if len(v) > 0 {
+			l++
+		}
+	}
+	return
+}
+
 // GetLayer gets the layer number of hashtron based on hashtron number. Returns -1 on failure.
 func (f FeedforwardNetwork) GetLayer(n int) int {
 	for i, v := range f.layers {
@@ -349,12 +359,26 @@ func (f FeedforwardNetwork) infer(in FeedforwardNetworkInput) (ouput Feedforward
 
 // Forward solves the intermediate value (net output after layer l based on that layer's input in) and the bit
 // returned by worst hashtron is optionally negated (using neg == 1) and returned as computed.
-func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg int) (inter Intermediate, computed bool) {
+func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l int, worstneg ...int) (inter Intermediate, computed []bool) {
+	computed = []bool{false, false}
+	var worst, neg = -1, -1
+	if len(worstneg) >= 2 {
+		worst = worstneg[0]
+		neg = worstneg[1]
+	}
+	var worst1, neg1 = -1, -1
+	if len(worstneg) >= 4 {
+		worst1, neg1 = worstneg[2], worstneg[3]
+	}
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
 		var combiner = f.combiners[l+1].Lay()
-		w := worst
+		w0 := worst
 		if neg != 1 {
-			w = -1
+			w0 = -1
+		}
+		w1 := worst1
+		if neg1 != 1 {
+			w1 = -1
 		}
 		var features = make([]uint32, len(f.layers[l]), len(f.layers[l]))
 		for i := range features {
@@ -363,11 +387,14 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 				features[i] = hash.Hash(features[i], uint32(i), f.premodulo[l])
 			}
 		}
-		var bits = hashtron.HashtronSlice(f.layers[l]).Forward(features, w)
+		var bits = hashtron.HashtronSlice(f.layers[l]).Forward(features, w0, w1)
 		for i, bit := range bits {
 			combiner.Put(i, bit&1 != 0)
 			if i == worst {
-				computed = bit&1 != 0
+				computed[0] = bit&1 != 0
+			}
+			if i == worst1 {
+				computed[1] = bit&1 != 0
 			}
 		}
 		return combiner, computed
@@ -379,16 +406,16 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l, worst, neg in
 		}
 		var val = f.layers[l][0].Forward(in.Feature(0), false)
 		//println(in.Feature(0), "=>", val)
-		return SingleValue(val), false
+		return SingleValue(val), []bool{false, false}
 	} else {
 		if f.premodulo[l] != 0 {
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
 		}
 		var bit = f.layers[l][0].Forward(in.Feature(0), false)
-		return SingleValue(bit & 1), (bit & 1) != 0
+		return SingleValue(bit & 1), []bool{(bit & 1) != 0, (bit & 1) != 0}
 	}
 
-	return nil, false
+	return nil, []bool{false, false}
 }
 
 type tally3io struct {
@@ -513,7 +540,8 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		}
 		if f.premodulo[l] != 0 {
 			ifw = hash.Hash(ifw, uint32(f.GetPosition(worst)), f.premodulo[l])
-		} else if tally.IsGlobalPremodulo() {
+		}
+		if tally.IsGlobalPremodulo() {
 			spm := tally.GetGlobalSaltPremodulo()
 			ifw = hash.Hash(ifw, spm[0], spm[1])
 		}
@@ -527,7 +555,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			}
 			preadd_input_next := inter
 			inter, computed := f.Forward(inter, l, f.GetPosition(worst), neg)
-			if computed {
+			if computed[0] {
 				compute[neg] = 1
 			} else {
 				compute[neg] = -1
@@ -606,7 +634,8 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
-		} else if tally.IsGlobalPremodulo() {
+		}
+		if tally.IsGlobalPremodulo() {
 			spm := tally.GetGlobalSaltPremodulo()
 			ifeature = hash.Hash(uint32(ifeature), spm[0], spm[1])
 		}
@@ -619,7 +648,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			}
 			preadd_input = in
 			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
-			changed := actual != (output.Feature(0)&1 != 0)
+			changed := actual[0] != (output.Feature(0)&1 != 0)
 			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 		} else {
 			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))
@@ -638,7 +667,8 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		ifeature := uint32(in.Feature(0))
 		if f.premodulo[l] != 0 {
 			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
-		} else if tally.IsGlobalPremodulo() {
+		}
+		if tally.IsGlobalPremodulo() {
 			spm := tally.GetGlobalSaltPremodulo()
 			ifeature = hash.Hash(uint32(ifeature), spm[0], spm[1])
 		}
@@ -650,7 +680,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 		}
 		preadd_input = in
 		_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
-		changed := actual != (output.Feature(0)&1 != 0)
+		changed := actual[0] != (output.Feature(0)&1 != 0)
 		tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 	}
 }
@@ -687,4 +717,321 @@ func (f *FeedforwardNetwork) GetClasses() (ret uint16) {
 		return ret2
 	}
 	return
+}
+
+// Distill4 distills two worst hashtrons together for parity-based outputs
+// Similar to distill2 but handles parity input/output and power-of-2 classification
+func (f *FeedforwardNetwork) Distill4(io FeedforwardNetworkParityInOutput, worst [2]int, dist *datasets.Distill,
+	loss func(actual, expected, mask uint32) uint32) {
+
+	// Default loss function if nil (absolute difference)
+	if loss == nil {
+		loss = func(actual, expected, mask uint32) uint32 {
+			if actual >= expected {
+				return actual - expected
+			}
+			return expected - actual
+		}
+	}
+
+	// Handle multi-cell output case
+	if f.GetLastCells() > 1 {
+		f.distill(io, tally4io{io: io, shift: 1}, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+			var ifeat, jfeat uint32
+			for k := byte(0); k < f.GetLastCells(); k++ {
+				ifeat |= (i.Feature(int(k)) & 1) << k
+				jfeat |= (j.Feature(int(k)) & 1) << k
+			}
+			return loss(ifeat, jfeat, (1<<f.GetLastCells())-1)>>1 != 0
+		})
+		return
+	}
+
+	// Single-cell output case
+	mask := uint32(1<<f.GetBits() - 1)
+	out := uint32(io.Output()^io.Parity()) & mask
+	f.distill2(io, tally4io{io: io, shift: 0}, worst, dist, func(i FeedforwardNetworkInput) uint32 {
+		ifm := i.Feature(0) & mask
+		return loss(ifm, out, mask)
+	})
+}
+
+// distill2 distills two worst hashtrons together using a loss function
+// Similar to distill but uses a loss function instead of less comparator
+// Loss is 0 if output is correct, higher values indicate worse outputs
+func (f *FeedforwardNetwork) distill2(in, output FeedforwardNetworkInput, worst [2]int, dist *datasets.Distill,
+	loss func(i FeedforwardNetworkInput) uint32) {
+
+	// For networks with combiners, use the full comparison version
+	l0 := f.GetLayer(worst[0])
+	if len(f.combiners) > l0+1 && f.combiners[l0+1] != nil {
+		f.distill(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+			return loss(i) < loss(j)
+		})
+		return
+	}
+
+	// For simple cases, use optimized version
+	f.distill(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+		// Prefer outputs with lower loss
+		return loss(i) < loss(j)
+
+		// Alternative strict version (uncomment if preferred):
+		// return (loss(i) == 0) && (loss(j) > 0)
+	})
+}
+
+// distill distills two worst hashtrons together using negation-based override system
+func (f *FeedforwardNetwork) distill(in, output FeedforwardNetworkInput, worst [2]int, dist *datasets.Distill, less func(i, j FeedforwardNetworkInput) bool) {
+	l := f.GetLayer(worst[0])
+	l2 := f.GetLayer(worst[1])
+	origin := in
+	preadd_input := in
+	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
+		in := Intermediate(&inferPreaddBase{add: SingleValue(0), in: in, base: 0})
+
+		var predicted [4]FeedforwardNetworkInput
+		var compute [2][4]bool
+		var ifws [4]uint32
+
+		for l_prev := 0; l_prev < l; l_prev += 2 {
+			if f.preadd[l_prev] == preAddition {
+				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l_prev)}
+			}
+			if f.preadd[l_prev] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
+			in, _ = f.Forward(in, l_prev, -1, 0)
+		}
+		ifw := in.Feature(f.GetPosition(worst[0]))
+		if f.preadd[l] == interAddition {
+			ifw += preadd_input.Feature(f.GetPosition(worst[0]))
+		} else if f.preadd[l] == preAddition {
+			ifw += origin.Feature(f.GetFrontOffset(l) + f.GetPosition(worst[0]))
+		}
+		if f.premodulo[l] != 0 {
+			ifw = hash.Hash(ifw, uint32(f.GetPosition(worst[0])), f.premodulo[l])
+		}
+		if dist.IsGlobalPremodulo() {
+			spm := dist.GetGlobalSaltPremodulo()
+			ifw = hash.Hash(ifw, spm[0], spm[1])
+		}
+		if l == l2 {
+			ifws[0] = in.Feature(f.GetPosition(worst[1]))
+			if f.preadd[l] == interAddition {
+				ifws[0] += preadd_input.Feature(f.GetPosition(worst[1]))
+			} else if f.preadd[l] == preAddition {
+				ifws[0] += origin.Feature(f.GetFrontOffset(l) + f.GetPosition(worst[1]))
+			}
+			if f.premodulo[l] != 0 {
+				ifws[0] = hash.Hash(ifws[0], uint32(f.GetPosition(worst[1])), f.premodulo[l])
+			}
+			if dist.IsGlobalPremodulo() {
+				spm := dist.GetGlobalSaltPremodulo()
+				ifws[0] = hash.Hash(ifws[0], spm[0], spm[1])
+			}
+			ifws[1] = ifws[0]
+			ifws[2] = ifws[0]
+			ifws[3] = ifws[0]
+		}
+		for neg := 0; neg < 4; neg++ {
+			inter := in
+			if f.preadd[l] == preAddition {
+				inter = &inferPreaddBase{add: origin, in: inter, base: f.GetFrontOffset(l)}
+			}
+			if f.preadd[l] == interAddition {
+				inter = &inferPreaddBase{add: preadd_input, in: inter, base: 0}
+			}
+			preadd_input_next := inter
+			var computed []bool
+			inter, computed = f.Forward(inter, l, f.GetPosition(worst[0]), neg&1, f.GetPosition(worst[1]), neg>>1)
+			if computed[0] {
+				compute[0][neg] = true
+			} else {
+				compute[0][neg] = false
+			}
+			if l == l2 {
+				if computed[1] {
+					compute[1][neg] = true
+				} else {
+					compute[1][neg] = false
+				}
+			}
+			if neg == 0 {
+				if inter.Disregard(f.GetLayerPosition(l, worst[0])) {
+					return
+				}
+			}
+			for l_post := l + 2; l_post < f.LenLayers(); l_post += 2 {
+				preadd_input_current := preadd_input_next // Save before modification
+				if l_post == l2 {
+					ifws[neg] = inter.Feature(f.GetPosition(worst[1]))
+					if f.preadd[l_post] == interAddition {
+						ifws[neg] += preadd_input_current.Feature(f.GetPosition(worst[1]))
+					} else if f.preadd[l_post] == preAddition {
+						ifws[neg] += origin.Feature(f.GetFrontOffset(l_post) + f.GetPosition(worst[1]))
+					}
+					if f.premodulo[l_post] != 0 {
+						ifws[neg] = hash.Hash(ifws[neg], uint32(f.GetPosition(worst[1])), f.premodulo[l_post])
+					}
+					if dist.IsGlobalPremodulo() {
+						spm := dist.GetGlobalSaltPremodulo()
+						ifws[neg] = hash.Hash(ifws[neg], spm[0], spm[1])
+					}
+				}
+				if f.preadd[l_post] == preAddition {
+					inter = &inferPreaddBase{add: origin, in: inter, base: f.GetFrontOffset(l_post)}
+				}
+				if f.preadd[l_post] == interAddition {
+					inter = &inferPreaddBase{add: preadd_input_next, in: inter, base: 0}
+				}
+				preadd_input_next = inter
+				if l_post != l2 {
+					inter, _ = f.Forward(inter, l_post, -1, 0)
+				} else {
+					var computed []bool
+					inter, computed = f.Forward(inter, l_post, f.GetPosition(worst[1]), neg>>1)
+					if computed[0] {
+						compute[1][neg] = true
+					} else {
+						compute[1][neg] = false
+					}
+				}
+			}
+			predicted[neg] = inter
+		}
+
+		//fmt.Println(compute)
+
+		// initially we inspect if we are correct anyway
+		if !less(predicted[0], output) && !less(output, predicted[0]) &&
+			!less(predicted[1], output) && !less(output, predicted[1]) &&
+			!less(predicted[2], output) && !less(output, predicted[2]) &&
+			!less(predicted[3], output) && !less(output, predicted[3]) {
+			return
+		}
+
+		irrelevantB := !less(predicted[0], predicted[2]) && !less(predicted[2], predicted[0]) &&
+			!less(predicted[1], predicted[3]) && !less(predicted[3], predicted[1])
+
+		if irrelevantB {
+			// (1) B is irrelevant — we’ve already checked that
+			if compute[0][0] != compute[0][2] || compute[0][1] != compute[0][3] {
+				panic("B was in fact relevant")
+			}
+
+			var aShouldBe, ambiguous bool
+			if compute[0][0] == compute[0][1] { // constant neuron
+				aShouldBe = compute[0][0]
+			} else {
+				// check which predicted matches output
+				pred0_matches := !less(predicted[0], output) && !less(output, predicted[0])
+				pred1_matches := !less(predicted[1], output) && !less(output, predicted[1])
+
+				if pred0_matches {
+					aShouldBe = compute[0][0]
+				} else if pred1_matches {
+					aShouldBe = compute[0][1]
+				} else {
+					ambiguous = true
+				}
+			}
+
+			if !ambiguous {
+				// Then write (respecting any prior decision):
+				val0, exists0 := dist.GetCellDecision(0, ifw)
+				if !exists0 || val0 == aShouldBe {
+					dist.SetCellDecision(0, ifw, aShouldBe)
+					return
+				}
+			}
+		}
+
+		irrelevantA := !less(predicted[0], predicted[1]) && !less(predicted[1], predicted[0]) &&
+			!less(predicted[2], predicted[3]) && !less(predicted[3], predicted[2])
+
+		if irrelevantA {
+			if compute[1][0] != compute[1][1] || compute[1][2] != compute[1][3] {
+
+				if ifws[0] == ifws[2] {
+
+					var ifwreal uint32
+					var bShouldBe, ambiguous bool
+					if compute[1][0] == compute[1][2] { // constant neuron
+						bShouldBe = compute[1][0]
+						ifwreal = ifws[0]
+					} else {
+						// check which predicted matches output
+						pred0_matches := !less(predicted[0], output) && !less(output, predicted[0])
+						pred2_matches := !less(predicted[2], output) && !less(output, predicted[2])
+
+						if pred0_matches {
+							bShouldBe = compute[1][0]
+							ifwreal = ifws[0]
+						} else if pred2_matches {
+							bShouldBe = compute[1][2]
+							ifwreal = ifws[2]
+						} else {
+							ambiguous = true
+						}
+					}
+
+					if !ambiguous {
+						// Then write (respecting any prior decision):
+						val1, exists1 := dist.GetCellDecision(1, ifwreal)
+						if !exists1 || val1 == bShouldBe {
+							dist.SetCellDecision(1, ifwreal, bShouldBe)
+							return
+						}
+					}
+
+				} else {
+					var ifwreal = [2]uint32{ifws[0], ifws[2]}
+					var bShouldBe = [2]bool{compute[1][0], compute[1][2]}
+
+					// Then write (respecting any prior decision):
+					val10, exists10 := dist.GetCellDecision(1, ifwreal[0])
+					val11, exists11 := dist.GetCellDecision(1, ifwreal[1])
+					if !exists10 || val10 == bShouldBe[0] {
+						dist.SetCellDecision(1, ifwreal[0], bShouldBe[0])
+					}
+					if !exists11 || val11 == bShouldBe[1] {
+						dist.SetCellDecision(1, ifwreal[1], bShouldBe[1])
+					}
+					if !exists10 || val10 == bShouldBe[0] || !exists11 || val11 == bShouldBe[1] {
+						return
+					}
+				}
+
+			} else {
+				// Neuron A truly irrelevant, compute values equal — choose any consistently:
+				bShouldBe := compute[1][0]
+				ifwreal := ifws[0]
+
+				val1, exists1 := dist.GetCellDecision(1, ifwreal)
+				if !exists1 || val1 == bShouldBe {
+					dist.SetCellDecision(1, ifwreal, bShouldBe)
+					return
+				}
+			}
+
+		}
+
+		// Case 3: Need joint training (original logic)
+		for neg := 0; neg < 4; neg++ {
+			if !less(predicted[neg], output) && !less(output, predicted[neg]) {
+				val0, exists0 := dist.GetCellDecision(0, ifw)
+				val1, exists1 := dist.GetCellDecision(1, ifws[neg])
+
+				if (!exists0 || val0 == compute[0][neg]) &&
+					(!exists1 || val1 == compute[1][neg]) {
+					dist.SetCellDecision(0, ifw, compute[0][neg])
+					dist.SetCellDecision(1, ifws[neg], compute[1][neg])
+					return
+				}
+			}
+		}
+		return
+	}
 }

@@ -4,6 +4,28 @@ import rand "math/rand"
 
 //import "github.com/neurlang/classifier/hash"
 
+func (f FeedforwardNetwork) Sequence(reverse bool) (o []int) {
+
+	// pick random layer of hashtrons
+	n := 2*rand.Intn(f.LenHashtronLayers())
+
+	o = make([]int, 0, f.Len())
+	if reverse {
+		for i := f.Len(); i >= 0; i-- {
+			if n == f.GetLayer(i) {
+				o = append(o, i)
+			}
+		}
+	} else {
+		for i := 0; i < f.Len(); i++ {
+			if n == f.GetLayer(i) {
+				o = append(o, i)
+			}
+		}
+	}
+	return
+}
+
 func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	o = make([]int, 0, f.LenLayers())
 

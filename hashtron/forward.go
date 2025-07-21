@@ -36,7 +36,7 @@ func (h Hashtron) Quaternary(input uint32) uint32 {
 
 type HashtronSlice []Hashtron
 
-func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
+func (hs HashtronSlice) Forward(samples []uint32, negate ...int) (out []uint16) {
 	if len(samples) == 0 {
 		return nil
 	}
@@ -44,7 +44,14 @@ func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
 		panic("number of samples doesnt match number of classifiers")
 	}
 	if len(samples) == 1 {
-		return []uint16{uint16(hs[0].Forward(samples[0], negate == 0))}
+		var negateHasZero bool
+		for _, neg := range negate {
+			if neg == 0 {
+				negateHasZero = true
+				break
+			}
+		}
+		return []uint16{uint16(hs[0].Forward(samples[0], negateHasZero))}
 	}
 	out = make([]uint16, len(hs), len(hs))
 	var salts = make([]uint32, len(hs), len(hs))
@@ -94,8 +101,10 @@ func (hs HashtronSlice) Forward(samples []uint32, negate int) (out []uint16) {
 	if all != 0 {
 		panic("not all")
 	}
-	if negate >= 0 && negate < len(out) {
-		out[negate] ^= 1
+	for _, neg := range negate {
+		if neg >= 0 && neg < len(out) {
+			out[neg] ^= 1
+		}
 	}
 	return
 }

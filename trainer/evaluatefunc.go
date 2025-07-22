@@ -28,7 +28,7 @@ func sampleSize(N int, significance byte) int {
 
 	// Assume worst-case proportion p = 0.5 for max variability
 	p := 0.5
-	e := float64(100 - significance) // Margin of error = 5%
+	e := float64(100 - significance) * 0.01 // Margin of error = 5%
 
 	numerator := math.Pow(z, 2) * p * (1 - p)
 	denominator := math.Pow(e, 2)

@@ -122,5 +122,5 @@ func main() {
 
 		})
 	trainer.Resume(net, resume, dstmodel)
-	trainer.NewLoopFunc(net, &improved_success_rate, 95, evaluate, trainWorst)()
+	trainer.NewLoopFunc(net, &improved_success_rate, 99, evaluate, trainWorst)()
 }

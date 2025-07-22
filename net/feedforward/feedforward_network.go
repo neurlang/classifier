@@ -442,7 +442,7 @@ func (io tally4io) Feature(n int) uint32 {
 // Tally4 tallies the network on ParityInOutput, tuning the worst-th hashtron
 // in the network f storing data in tally. Loss can be nil if predicting power of 2 classes,
 // or an actual minus expected difference or any other loss (0 means correct).
-func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst int, tally *datasets.Tally,
+func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst int, tally datasets.AnyTally,
 	loss func(actual, expected, mask uint32) uint32) {
 	if loss == nil {
 		loss = func(actual, expected, mask uint32) uint32 {
@@ -476,7 +476,7 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 // Tally3 tallies the network like Tally2, except it can also balance the dataset using input parity bit.
 // Loss is 0 if the output is correct, below or equal to maxloss otherwise.
 func (f *FeedforwardNetwork) tally3(in FeedforwardNetworkParityInput, output FeedforwardNetworkInput,
-	worst int, tally *datasets.Tally, loss func(i FeedforwardNetworkInput) uint32) {
+	worst int, tally datasets.AnyTally, loss func(i FeedforwardNetworkInput) uint32) {
 	if in.Parity() {
 		output = tally3io{
 			par: in,
@@ -490,7 +490,7 @@ func (f *FeedforwardNetwork) tally3(in FeedforwardNetworkParityInput, output Fee
 
 // Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the
 // output is correct, below or equal to maxloss otherwise.
-func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally,
+func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst int, tally datasets.AnyTally,
 	loss func(i FeedforwardNetworkInput) uint32) {
 	l := f.GetLayer(worst)
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {
@@ -511,7 +511,7 @@ func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst in
 // Tally tallies the network on input/output pair with respect to to-be-trained worst hashtron.
 // The tally is stored into thread safe structure Tally. Two ouputs i, j can be compared to be less
 // worse using the function less (returning true if output i is less worse than output j).
-func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int, tally *datasets.Tally, less func(i, j FeedforwardNetworkInput) bool) {
+func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int, tally datasets.AnyTally, less func(i, j FeedforwardNetworkInput) bool) {
 
 	l := f.GetLayer(worst)
 	origin := in
@@ -719,9 +719,18 @@ func (f *FeedforwardNetwork) GetClasses() (ret uint16) {
 	return
 }
 
-// Distill4 distills two worst hashtrons together for parity-based outputs
-// Similar to distill2 but handles parity input/output and power-of-2 classification
-func (f *FeedforwardNetwork) Distill4(io FeedforwardNetworkParityInOutput, worst [2]int, dist *datasets.Distill,
+func (f *FeedforwardNetwork) AnyTally(io FeedforwardNetworkParityInOutput, worst []int, t datasets.AnyTally,
+	loss func(actual, expected, mask uint32) uint32) {
+	if len(worst) == 1 {
+		f.Tally4(io, worst[0], t, loss)
+	} else if len(worst) == 2 {
+		f.PreTally4(io, [2]int{worst[0], worst[1]}, t, loss)
+	}
+}
+
+// PreTally4 preTallys two worst hashtrons together for parity-based outputs
+// Similar to preTally2 but handles parity input/output and power-of-2 classification
+func (f *FeedforwardNetwork) PreTally4(io FeedforwardNetworkParityInOutput, worst [2]int, dist datasets.AnyTally,
 	loss func(actual, expected, mask uint32) uint32) {
 
 	// Default loss function if nil (absolute difference)
@@ -736,7 +745,7 @@ func (f *FeedforwardNetwork) Distill4(io FeedforwardNetworkParityInOutput, worst
 
 	// Handle multi-cell output case
 	if f.GetLastCells() > 1 {
-		f.distill(io, tally4io{io: io, shift: 1}, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+		f.preTally(io, tally4io{io: io, shift: 1}, worst, dist, func(i, j FeedforwardNetworkInput) bool {
 			var ifeat, jfeat uint32
 			for k := byte(0); k < f.GetLastCells(); k++ {
 				ifeat |= (i.Feature(int(k)) & 1) << k
@@ -750,29 +759,29 @@ func (f *FeedforwardNetwork) Distill4(io FeedforwardNetworkParityInOutput, worst
 	// Single-cell output case
 	mask := uint32(1<<f.GetBits() - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
-	f.distill2(io, tally4io{io: io, shift: 0}, worst, dist, func(i FeedforwardNetworkInput) uint32 {
+	f.preTally2(io, tally4io{io: io, shift: 0}, worst, dist, func(i FeedforwardNetworkInput) uint32 {
 		ifm := i.Feature(0) & mask
 		return loss(ifm, out, mask)
 	})
 }
 
-// distill2 distills two worst hashtrons together using a loss function
-// Similar to distill but uses a loss function instead of less comparator
+// preTally2 preTallys two worst hashtrons together using a loss function
+// Similar to preTally but uses a loss function instead of less comparator
 // Loss is 0 if output is correct, higher values indicate worse outputs
-func (f *FeedforwardNetwork) distill2(in, output FeedforwardNetworkInput, worst [2]int, dist *datasets.Distill,
+func (f *FeedforwardNetwork) preTally2(in, output FeedforwardNetworkInput, worst [2]int, dist datasets.AnyTally,
 	loss func(i FeedforwardNetworkInput) uint32) {
 
 	// For networks with combiners, use the full comparison version
 	l0 := f.GetLayer(worst[0])
 	if len(f.combiners) > l0+1 && f.combiners[l0+1] != nil {
-		f.distill(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+		f.preTally(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
 			return loss(i) < loss(j)
 		})
 		return
 	}
 
 	// For simple cases, use optimized version
-	f.distill(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
+	f.preTally(in, output, worst, dist, func(i, j FeedforwardNetworkInput) bool {
 		// Prefer outputs with lower loss
 		return loss(i) < loss(j)
 
@@ -781,8 +790,8 @@ func (f *FeedforwardNetwork) distill2(in, output FeedforwardNetworkInput, worst 
 	})
 }
 
-// distill distills two worst hashtrons together using negation-based override system
-func (f *FeedforwardNetwork) distill(in, output FeedforwardNetworkInput, worst [2]int, dist *datasets.Distill, less func(i, j FeedforwardNetworkInput) bool) {
+// preTally preTallys two worst hashtrons together using negation-based override system
+func (f *FeedforwardNetwork) preTally(in, output FeedforwardNetworkInput, worst [2]int, dist datasets.AnyTally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst[0])
 	l2 := f.GetLayer(worst[1])
 	origin := in

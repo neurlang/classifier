@@ -180,6 +180,10 @@ func (t *Tally) Split() SplittedDataset {
 	}
 }
 
+func (t *Tally) DatasetAt(n int) Dataset {
+	return t.Dataset()
+}
+
 // Dataset gets binary Dataset from tally
 func (t *Tally) Dataset() Dataset {
 	var sett Dataset
@@ -197,4 +201,39 @@ func (t *Tally) Dataset() Dataset {
 		}
 	}
 	return sett
+}
+
+// GetCellDecision returns the distilled output for a specific cell and feature
+func (t *Tally) GetCellDecision(position int, feature uint32) (val bool, avail bool) {
+	if position > 0 {
+		return
+	}
+	t.mut.Lock()
+	if t.improve[feature] != 0 {
+		v, avail := t.improve[feature]
+		t.mut.Unlock()
+		return v > 0, avail
+	} else {
+		v, avail := t.correct[feature]
+		t.mut.Unlock()
+		return v > 0, avail
+	}
+	t.mut.Unlock()
+	return false, false
+}
+
+// SetCellDecision stores a distilled decision for a specific cell and feature
+func (t *Tally) SetCellDecision(position int, feature uint32, output bool) {
+	if position > 0 {
+		return
+	}
+	t.mut.Lock()
+	if output {
+		t.correct[feature] = 1
+		t.improve[feature] = 1
+	} else {
+		t.correct[feature] = -1
+		t.improve[feature] = -1
+	}
+	t.mut.Unlock()
 }

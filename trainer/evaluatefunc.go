@@ -1,7 +1,6 @@
 package trainer
 
 import "fmt"
-import "os"
 import "math"
 
 import "github.com/neurlang/classifier/parallel"
@@ -69,7 +68,9 @@ func NewEvaluateFunc(net feedforward.FeedforwardNetwork, length int, significanc
 		var ha EvaluateFuncHasher = h
 		var success int
 		if length != 0 {
-			length = sampleSize(length, significance)
+			if (succ != nil && (*succ < 99 && *succ > 0)) || (succ == nil) {
+				length = sampleSize(length, significance)
+			}
 			hsh := parallel.NewUint16Hasher(length)
 			ha = hsh
 			success = testFunc(length, hsh)
@@ -84,7 +85,7 @@ func NewEvaluateFunc(net feedforward.FeedforwardNetwork, length int, significanc
 			}
 		}
 
-		if dstmodel != nil && len(*dstmodel) > 0 && ((succ != nil && (*succ < success || success == 99)) || succ == nil) {
+		if dstmodel != nil && len(*dstmodel) > 0 && ((succ != nil && (*succ < success || success >= 99)) || succ == nil) {
 			if succ != nil && *succ > 0 {
 				err := net.WriteZlibWeightsToFile(*dstmodel)
 				if err != nil {
@@ -100,10 +101,6 @@ func NewEvaluateFunc(net feedforward.FeedforwardNetwork, length int, significanc
 			}
 		}
 
-		if success >= 100 {
-			println("Max accuracy or wrong data. Exiting")
-			os.Exit(0)
-		}
 		return success, ha.Sum()
 	}
 }

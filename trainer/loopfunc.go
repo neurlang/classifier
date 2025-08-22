@@ -12,6 +12,10 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 
 	var m = parallel.NewMoveSet()
 	var success, state = evaluate()
+	if success >= 100 && treshold > 100 {
+		println("Max accuracy or wrong data. Exiting")
+		os.Exit(0)
+	}
 	var default_backoff = func() {
 		println("Infinite loop - algorithm stuck in local minimum. Exiting")
 		os.Exit(0)
@@ -22,7 +26,7 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 	for {
 		for infloop := 0; infloop < net.Len(); infloop++ {
 			var shuf []int
-			if success < treshold {
+			if success >= treshold {
 				shuf = net.Sequence(false)
 				rand.Seed(time.Now().UnixNano())
 				rand.Shuffle(len(shuf), func(i, j int) { shuf[i], shuf[j] = shuf[j], shuf[i] })
@@ -39,7 +43,7 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 					inSucc = *succ
 				}
 				worsts := []int{shuf[worst]}
-				if inSucc < treshold {
+				if inSucc >= treshold {
 					if worst+1 < len(shuf) {
 						worsts = append(worsts, shuf[worst+1])
 					} else {
@@ -49,6 +53,10 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 				if this_backoff := trainWorst(worsts, inSucc); this_backoff != nil {
 					infloop = -1
 					this_success, this_state := evaluate()
+					if this_success >= 100 && treshold > 100 {
+						println("Max accuracy or wrong data. Exiting")
+						os.Exit(0)
+					}
 					if _, bad := local_minimums[this_state]; bad {
 						this_backoff()
 						break
@@ -71,5 +79,9 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 		backoff()
 		backoff = default_backoff
 		success, state = evaluate()
+		if success >= 100 && treshold > 100 {
+			println("Max accuracy or wrong data. Exiting")
+			os.Exit(0)
+		}
 	}
 }

@@ -1,5 +1,7 @@
 package phonemizer_ulevel
 
+//import "fmt"
+
 // Phonetic utterance-level G2P data loader and subsample generator
 // - On-the-fly subsample generation
 // - Cyclic-add Q/K/V across configurable Slots
@@ -216,15 +218,6 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 		slots = 8
 	}
 
-	token := sample.Src[i]
-
-	// collision handling
-	if len(sample.Coll) > 0 {
-		if _, ok := sample.Coll[i][candidate]; ok {
-			return nil
-		}
-	}
-
 	var s Subsample
 	// allocate
 	s.Q = make([]uint32, slots)
@@ -232,13 +225,14 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 	s.V = make([]uint32, slots)
 	s.Counts = make([]uint16, slots)
 
-	// 1) Q: cyclic-add of codepoints of the target orthographic token
-	cidx := 0
-	for _, r := range token {
-		slot := cidx % slots
-		s.Q[slot] = s.Q[slot] + charToUint32(r)
-		cidx++
+	// 1) Q: Join all source tokens, break into runes, hash each rune, and distribute cyclically
+	fullSrc := strings.Join(sample.Src, "")
+	runes := []rune(fullSrc)
+	for j, r := range runes {
+		slot := j % slots
+		s.Q[slot] = tokenHash(string(r))  // Hash each individual rune
 	}
+
 
 	// 2) K/V accumulation across entire utterance (cyclic-add fold)
 	for t := 0; t < len(sample.Src); t++ {
@@ -284,8 +278,12 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 		s.Counts[targetSlot] = uint16(negativesCount)
 	}
 
-	// 5) Label: true iff candidate equals gold spoken form
-	s.Label = (candidate == sample.Dst[i])
+	// collision handling
+	if len(sample.Coll) > 0 {
+		if _, ok := sample.Coll[i][candidate]; ok {
+			s.Label = true
+		}
+	}
 
 	return &s
 }
@@ -325,7 +323,12 @@ func (sample *Sample) V1() ([]*Subsample) {
 		if goldSub == nil {
 			panic("gold sub must exist")
 		}
+		goldSub.Label = true
 		out = append(out, goldSub)
+
+		//if strings.Join(sample.Src, "") == "sledujte" { 
+		//	fmt.Println(sample.Src, sample.Dst, goldSub.Q, goldSub.K, goldSub.V, goldSub.Label)
+		//}
 
 		// Emit higher-priority negatives in order (index 0 .. goldIdx-1)
 		for n := 0; n < goldIdx; n++ {
@@ -333,6 +336,10 @@ func (sample *Sample) V1() ([]*Subsample) {
 			sub := makeSubsampleForCandidate(sample, i, neg, negCount, slots)
 			if sub != nil {
 				out = append(out, sub)
+
+				//if strings.Join(sample.Src, "") == "sledujte" { 
+				//	fmt.Println(sample.Src, sample.Dst, sub.Q, sub.K, sub.V, sub.Label)
+				//}
 			}
 		}
 	}
@@ -367,13 +374,12 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 	s.V = make([]uint32, slots)
 	s.Counts = make([]uint16, slots)
 
-	// --- 1) Q: cyclic-add chars of current orthographic token
-	token := src[cur]
-	cidx := 0
-	for _, r := range token {
-		slot := cidx % slots
-		s.Q[slot] += charToUint32(r)
-		cidx++
+	// 1) Q: Join all source tokens, break into runes, hash each rune, and distribute cyclically
+	fullSrc := strings.Join(src, "")
+	runes := []rune(fullSrc)
+	for j, r := range runes {
+		slot := j % slots
+		s.Q[slot] = tokenHash(string(r))  // Hash each individual rune
 	}
 
 	// --- 2) K/V accumulation across utterance
@@ -398,6 +404,8 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 
 	// --- 3) Label = false, Counts = 0
 	s.Label = false
+
+	//fmt.Println(src, dst, option, s.Q, s.K, s.V)
 
 	return &s
 }

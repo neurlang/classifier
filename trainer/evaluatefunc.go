@@ -68,12 +68,13 @@ func NewEvaluateFunc(net feedforward.FeedforwardNetwork, length int, significanc
 		var ha EvaluateFuncHasher = h
 		var success int
 		if length != 0 {
+			var l = length
 			if (succ != nil && (*succ < 99 && *succ > 0)) || (succ == nil) {
-				length = sampleSize(length, significance)
+				l = sampleSize(length, significance)
 			}
-			hsh := parallel.NewUint16Hasher(length)
+			hsh := parallel.NewUint16Hasher(l)
 			ha = hsh
-			success = testFunc(length, hsh)
+			success = testFunc(l, hsh)
 		} else {
 			success = testFunc(0, h)
 		}

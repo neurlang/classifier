@@ -52,9 +52,9 @@ func main() {
 			{
 				var io = dataset.Get(j).Balance()
 
-				var predicted = net.Infer2(&io) & 1
+				var predicted = net.Infer2(&io)
 				//println(predicted, io.Output())
-				if predicted == io.Output()%net.GetClasses() {
+				if predicted == io.Output() {
 					percent.Add(1)
 				}
 				errsum.Add(uint64(error_abs(predicted, io.Output())))

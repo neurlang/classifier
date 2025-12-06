@@ -10,7 +10,7 @@ func (s *Sample) Feature(n int) uint32 {
 
 func (s *Sample) Parity() uint16 {
 	// don't balance
-	return 4
+	return 0
 	//return uint16(*s) ^ uint16(*s) << 3
 }
 

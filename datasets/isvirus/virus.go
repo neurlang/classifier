@@ -25,10 +25,20 @@ func (_ Dataslice) Len() int {
 type Sample stringhash.Sample
 type ByteSample stringhash.ByteSample
 
-func (s Sample) Balance() stringhash.BalancedSample {
-	return stringhash.BalancedSample{
-		Str: s.Str,
-		Out: s.Out,
+type BalancedSample struct {
+	stringhash.BalancedSample
+}
+
+func (s BalancedSample) Parity() uint16 {
+	return s.BalancedSample.Parity() & 1
+}
+
+func (s Sample) Balance() BalancedSample {
+	return BalancedSample{
+		BalancedSample: stringhash.BalancedSample{
+				Str: s.Str,
+				Out: s.Out,
+		},
 	}
 }
 func (s Sample) Byte() ByteSample {

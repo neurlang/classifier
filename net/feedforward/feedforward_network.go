@@ -881,6 +881,37 @@ func (f *FeedforwardNetwork) preTally2(in, output FeedforwardNetworkInput, worst
 func (f *FeedforwardNetwork) preTally(in, output FeedforwardNetworkInput, worst [2]int, dist datasets.AnyTally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst[0])
 	l2 := f.GetLayer(worst[1])
+	
+	// For multi-bit outputs, check if current prediction is already perfect
+	// Skip training hidden layers on perfect samples to prevent recoil
+	if f.GetLastCells() > 1 {
+		// Compute current output
+		currentIn := in
+		currentPreadd := in
+		for l_prev := 0; l_prev < f.LenLayers(); l_prev += 2 {
+			if f.preadd[l_prev] == preAddition {
+				currentIn = &inferPreaddBase{add: in, in: currentIn, base: f.GetFrontOffset(l_prev)}
+			}
+			if f.preadd[l_prev] == interAddition {
+				currentIn = &inferPreaddBase{add: currentPreadd, in: currentIn, base: 0}
+			}
+			currentPreadd = currentIn
+			currentIn, _ = f.Forward(currentIn, l_prev, -1, 0)
+		}
+		
+		// Check if current output matches expected
+		expectedValue := output.Feature(0)
+		var actualValue uint32
+		for j := byte(0); j < f.GetLastCells(); j++ {
+			actualValue |= (currentIn.Feature(int(j)) & 1) << j
+		}
+		
+		// If perfect match, skip training to prevent recoil
+		if actualValue == expectedValue {
+			return
+		}
+	}
+	
 	origin := in
 	preadd_input := in
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {

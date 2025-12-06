@@ -34,20 +34,16 @@ func main() {
 	dataset := squareroot.Medium()
 
 	const fanout1 = 3
-	const fanout2 = 12
-	const fanout3 = 3
-	const fanout4 = 12
-	//const fanout5 = 3
-	//const fanout6 = 5
+	const fanout2 = 5
+	const fanout3 = 1
+	const fanout4 = 5
 
 	var net feedforward.FeedforwardNetwork
-	//net.NewLayerP(fanout1*fanout2*fanout3*fanout4*fanout5*fanout6, 0, 1<<fanout6)
-	//net.NewCombiner(majpool2d.MustNew(fanout1*fanout2*fanout3*fanout4*fanout6, 1, fanout5, 1, fanout6, 1, 1))
-	net.NewLayerP(fanout1*fanout2*fanout3*fanout4, 0, 1<<fanout4)
-	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
-	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
-	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
-	net.NewLayer(squareroot.MediumClasses, 1)
+	net.NewLayerP(fanout1*fanout2*fanout3*fanout4*squareroot.MediumClasses, 0, 1<<fanout4)
+	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*squareroot.MediumClasses*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
+	net.NewLayerP(fanout1*fanout2*squareroot.MediumClasses, 0, 1<<fanout2)
+	net.NewCombiner(majpool2d.MustNew2(squareroot.MediumClasses*fanout2, 1, fanout1, 1, squareroot.MediumClasses*fanout2, 1, 1, 0))
+	net.NewLayer(squareroot.MediumClasses, 0)
 
 	trainWorst := trainer.NewTrainWorstFunc(net, nil, nil, nil,
 		func(worst []int, tally datasets.AnyTally) {

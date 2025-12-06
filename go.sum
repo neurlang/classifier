@@ -1,5 +1,3 @@
-github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0 h1:1icIF7p+KYk5pJ2f9kv2xZy8HxNXoWj2PkKO0EovqTE=
-github.com/jbarham/primegen v0.0.0-20200302115600-8ce4838491a0/go.mod h1:Airb7uqSrSAayrH8p4ZE/b6QfKuoWMv7WoSfMtF/3Lc=
 github.com/klauspost/cpuid/v2 v2.2.8 h1:+StwCXwm9PdpiEkPyzBXIy+M9KUb4ODm0Zarf1kS5BM=
 github.com/klauspost/cpuid/v2 v2.2.8/go.mod h1:Lcz8mBdAVJIBVzewtcLocK12l3Y+JytZYpaMropDUws=
 github.com/neurlang/NumToWordsGo v0.0.0-20250407021724-7b23483906ba h1:J4Va/KRy48MHEx0tCzaSPmk6pOVpUr0fxDc8P71qFgU=

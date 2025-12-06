@@ -5,7 +5,6 @@ import "sync/atomic"
 //import "math"
 //import "math/rand"
 import "flag"
-import "os"
 import "github.com/neurlang/classifier/datasets/squareroot"
 import "github.com/neurlang/classifier/datasets"
 //import "github.com/neurlang/classifier/layer/conv2d"
@@ -48,7 +47,7 @@ func main() {
 	net.NewCombiner(majpool2d.MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0))
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
 	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
-	net.NewLayer(1, squareroot.MediumClasses)
+	net.NewLayer(squareroot.MediumClasses, 1)
 
 	trainWorst := trainer.NewTrainWorstFunc(net, nil, nil, nil,
 		func(worst []int, tally datasets.AnyTally) {

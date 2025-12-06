@@ -19,9 +19,9 @@ type Intermediate interface {
 // SingleValue is a single value returned by the final layer
 type SingleValue uint32
 
-// Feature extracts the feature from SingleValue
+// Feature extracts the n-th bit from SingleValue
 func (v SingleValue) Feature(n int) uint32 {
-	return uint32(v)
+	return (uint32(v) >> uint(n)) & 1
 }
 
 // Disregard reports whether SingleValue doesn't regard n-th bit as affecting the output
@@ -400,13 +400,27 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l int, worstneg 
 		return combiner, computed
 	}
 
-	if len(f.mapping) > l && f.mapping[l] > 0 {
-		if f.premodulo[l] != 0 {
-			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
+	if f.GetLastCells() > 1 {
+		var val uint64
+		inputFeature := in.Feature(0)
+		for j := uint32(0); byte(j) < f.GetLastCells(); j++ {
+			var hashedInput uint32
+			if f.premodulo[l] != 0 {
+				hashedInput = hash.Hash(inputFeature, j, f.premodulo[l])
+			} else {
+				hashedInput = inputFeature
+			}
+			var bit = f.layers[l][j].Forward(hashedInput, false) & 1
+			val |= bit << j
+			if int(j) == worst {
+				computed[0] = bit&1 != 0
+			}
+			if int(j)  == worst1 {
+				computed[1] = bit&1 != 0
+			}
 		}
-		var val = f.layers[l][0].Forward(in.Feature(0), false)
-		//println(in.Feature(0), "=>", val)
-		return SingleValue(val), []bool{false, false}
+		//println(inputFeature, "=>", val)
+		return SingleValue(val), computed
 	} else {
 		if f.premodulo[l] != 0 {
 			in = SingleValue(hash.Hash(in.Feature(0), 0, f.premodulo[l]))
@@ -446,30 +460,24 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 	loss func(actual, expected, mask uint32) uint32) {
 	if loss == nil {
 		loss = func(actual, expected, mask uint32) uint32 {
-			if actual >= expected {
-				return actual - expected
+			// Hamming distance: count number of differing bits
+			xor := actual ^ expected
+			var hammingDist uint32
+			for xor != 0 {
+				hammingDist += xor & 1
+				xor >>= 1
 			}
-			return expected - actual
+			return hammingDist
 		}
 	}
-	if f.GetLastCells() > 1 {
-		f.tally(io, tally4io{io: io, shift: 1}, worst, tally, func(i, j FeedforwardNetworkInput) bool {
-			var ifeat, jfeat uint32
-			for k := byte(0); k < f.GetLastCells(); k++ {
-				ifeat |= (i.Feature(int(k)) & 1) << k
-				jfeat |= (j.Feature(int(k)) & 1) << k
-			}
-			//println(ifeat, jfeat)
-			return loss(ifeat, jfeat, (1<<f.GetLastCells()))>>1 != 0
-		})
-		return
-	}
-	mask := uint32(uint32(1<<f.GetBits()) - 1)
+	
+	// Single-cell
+	mask := uint32((1 << f.GetLastCells()) - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
 	f.tally2(io, tally4io{io: io, shift: 0}, worst, tally, func(i FeedforwardNetworkInput) uint32 {
-		ifm := (i.Feature(0)) & mask
-		//println(ifm, out)
-		return loss(ifm, out, mask)
+		ifeat := i.Feature(0) & mask
+		//println(ifeat, out)
+		return loss(ifeat, out, mask)
 	})
 }
 
@@ -631,15 +639,17 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			preadd_input = in
 			in, _ = f.Forward(in, l_prev, -1, 0)
 		}
-		ifeature := uint32(in.Feature(0))
+		inputFeature := uint32(in.Feature(0))
+		worstPos := uint32(f.GetPosition(worst))
+		ifeature := inputFeature
 		if f.premodulo[l] != 0 {
-			ifeature = hash.Hash(uint32(ifeature), 0, f.premodulo[l])
+			ifeature = hash.Hash(inputFeature, worstPos, f.premodulo[l])
 		}
 		if tally.IsGlobalPremodulo() {
 			spm := tally.GetGlobalSaltPremodulo()
-			ifeature = hash.Hash(uint32(ifeature), spm[0], spm[1])
+			ifeature = hash.Hash(ifeature, spm[0], spm[1])
 		}
-		if f.GetBits() == 1 {
+		if f.GetLastCells() > 1 {
 			if f.preadd[l] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
 			}
@@ -647,9 +657,12 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
 			}
 			preadd_input = in
-			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
-			changed := actual[0] != (output.Feature(0)&1 != 0)
-			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
+			fw, _ := f.Forward(in, l, f.GetPosition(worst), 0)
+			// Get the expected bit for this specific hashtron
+			expectedBit := (output.Feature(0) >> worstPos) & 1
+			actualBit := (fw.Feature(0) >> worstPos) & 1
+			changed := expectedBit != actualBit
+			tally.AddToCorrect(ifeature, 2*int8(expectedBit)-1, changed)
 		} else {
 			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))
 		}
@@ -687,14 +700,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 
 // GetBits reports the number of bits predicted by this network
 func (f *FeedforwardNetwork) GetBits() (ret byte) {
-	if len(f.mapping) == 0 {
-		return 1
-	}
-	ret = f.mapping[len(f.mapping)-1]
-	if ret == 0 {
-		ret = 1
-	}
-	return
+	return 1
 }
 
 // GetLastCells gets last cells
@@ -733,35 +739,27 @@ func (f *FeedforwardNetwork) AnyTally(io FeedforwardNetworkParityInOutput, worst
 func (f *FeedforwardNetwork) PreTally4(io FeedforwardNetworkParityInOutput, worst [2]int, dist datasets.AnyTally,
 	loss func(actual, expected, mask uint32) uint32) {
 
-	// Default loss function if nil (absolute difference)
+	// Default loss function if nil (Hamming distance)
 	if loss == nil {
 		loss = func(actual, expected, mask uint32) uint32 {
-			if actual >= expected {
-				return actual - expected
+			// Hamming distance: count number of differing bits
+			xor := actual ^ expected
+			var hammingDist uint32
+			for xor != 0 {
+				hammingDist += xor & 1
+				xor >>= 1
 			}
-			return expected - actual
+			return hammingDist
 		}
 	}
 
-	// Handle multi-cell output case
-	if f.GetLastCells() > 1 {
-		f.preTally(io, tally4io{io: io, shift: 1}, worst, dist, func(i, j FeedforwardNetworkInput) bool {
-			var ifeat, jfeat uint32
-			for k := byte(0); k < f.GetLastCells(); k++ {
-				ifeat |= (i.Feature(int(k)) & 1) << k
-				jfeat |= (j.Feature(int(k)) & 1) << k
-			}
-			return loss(ifeat, jfeat, (1<<f.GetLastCells())-1)>>1 != 0
-		})
-		return
-	}
-
-	// Single-cell output case
-	mask := uint32(1<<f.GetBits() - 1)
+	
+	// Single-cell
+	mask := uint32((1 << f.GetBits()) - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
 	f.preTally2(io, tally4io{io: io, shift: 0}, worst, dist, func(i FeedforwardNetworkInput) uint32 {
-		ifm := i.Feature(0) & mask
-		return loss(ifm, out, mask)
+		ifeat := i.Feature(0) & mask
+		return loss(ifeat, out, mask)
 	})
 }
 

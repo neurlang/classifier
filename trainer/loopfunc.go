@@ -76,7 +76,10 @@ func NewLoopFunc(net feedforward.FeedforwardNetwork, succ *int, treshold int, ev
 			}
 		}
 		local_minimums[state] = struct{}{}
-		backoff()
+		// Don't backoff if we're already at or above threshold (prevents recoil in double descent)
+		if success < treshold {
+			backoff()
+		}
 		backoff = default_backoff
 		success, state = evaluate()
 		if success >= 100 && treshold > 100 {

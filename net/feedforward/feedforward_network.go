@@ -594,45 +594,97 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			}
 			predicted[neg] = inter
 		}
-		if !less(predicted[0], output) && !less(predicted[1], output) &&
-			!less(output, predicted[0]) && !less(output, predicted[1]) {
-			// we are correct anyway
+		// Calculate Hamming distances for multi-bit outputs
+		var hammingDists [2]int8
+		if f.GetLastCells() > 1 {
+			expectedValue := output.Feature(0)
+			for neg := 0; neg < 2; neg++ {
+				var actualValue uint32
+				for j := byte(0); j < f.GetLastCells(); j++ {
+					actualValue |= (predicted[neg].Feature(int(j)) & 1) << j
+				}
+				xorBits := expectedValue ^ actualValue
+				for xorBits != 0 {
+					hammingDists[neg] += int8(xorBits & 1)
+					xorBits >>= 1
+				}
+			}
 
-			return
-		}
-
-		if !less(predicted[0], predicted[1]) && !less(predicted[1], predicted[0]) {
-			// can't change
-
-			return
-		}
-
-		for neg := 0; neg < 2; neg++ {
-			if !less(predicted[neg], output) && !less(output, predicted[neg]) {
-				tally.AddToCorrect(ifw, compute[neg], neg == 1)
-				// shift to correct output
+			// Check if we're already perfect
+			if hammingDists[0] == 0 {
+				// Perfect match - reinforce the current state
+				tally.AddToCorrect(ifw, compute[0], false)
 				return
 			}
-		}
 
-		// Further refined part
-		if less(output, predicted[0]) != less(output, predicted[1]) {
-			// Output is between the two predictions
-			if less(output, predicted[0]) {
-				// shift away from wrong
-				tally.AddToImprove(ifw, -compute[0])
-			} else {
-				// shift away from wrong
-				tally.AddToImprove(ifw, -compute[1])
+			// Check if flipping this neuron makes any difference
+			if hammingDists[0] == hammingDists[1] {
+				// Flipping doesn't change the output at all
+				return
 			}
-		} else {
-			// Output is below or above
-			if less(output, predicted[1]) {
-				// shift towards better
-				tally.AddToImprove(ifw, compute[0])
+
+			// For multi-bit: use Hamming distances to determine better direction
+			var betterNeg int
+			if hammingDists[0] < hammingDists[1] {
+				betterNeg = 0
+			} else if hammingDists[1] < hammingDists[0] {
+				betterNeg = 1
 			} else {
-				// shift towards better
-				tally.AddToImprove(ifw, compute[1])
+				// Both are equally bad/good - don't train
+				return
+			}
+
+			// Use AddToCorrect to train towards the better direction
+			weight := compute[betterNeg]
+			// Weight by how much better it is (improvement)
+			improvement := hammingDists[1-betterNeg] - hammingDists[betterNeg]
+			if improvement > 0 {
+				weight = compute[betterNeg] * improvement
+			} else {
+				// No improvement - shouldn't happen but be safe
+				return
+			}
+			tally.AddToCorrect(ifw, weight, true)
+		} else {
+			// For single-bit: use the less function
+			if !less(predicted[0], output) && !less(predicted[1], output) &&
+				!less(output, predicted[0]) && !less(output, predicted[1]) {
+				// we are correct anyway
+				return
+			}
+
+			if !less(predicted[0], predicted[1]) && !less(predicted[1], predicted[0]) {
+				// can't change
+				return
+			}
+
+			for neg := 0; neg < 2; neg++ {
+				if !less(predicted[neg], output) && !less(output, predicted[neg]) {
+					tally.AddToCorrect(ifw, compute[neg], neg == 1)
+					// shift to correct output
+					return
+				}
+			}
+
+			// Further refined part
+			if less(output, predicted[0]) != less(output, predicted[1]) {
+				// Output is between the two predictions
+				if less(output, predicted[0]) {
+					// shift away from wrong
+					tally.AddToImprove(ifw, -compute[0])
+				} else {
+					// shift away from wrong
+					tally.AddToImprove(ifw, -compute[1])
+				}
+			} else {
+				// Output is below or above
+				if less(output, predicted[1]) {
+					// shift towards better
+					tally.AddToImprove(ifw, compute[0])
+				} else {
+					// shift towards better
+					tally.AddToImprove(ifw, compute[1])
+				}
 			}
 		}
 		return
@@ -658,20 +710,8 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			spm := tally.GetGlobalSaltPremodulo()
 			ifeature = hash.Hash(ifeature, spm[0], spm[1])
 		}
-		// Single-cell binary classification (one hashtron predicts 0 or 1)
-		if f.mapping[l] == 1 {
-			if f.preadd[l] == preAddition {
-				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
-			}
-			if f.preadd[l] == interAddition {
-				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
-			}
-			preadd_input = in
-			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
-			changed := actual[0] != (output.Feature(0)&1 != 0)
-			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 		// Multi-cell output (multiple bits, each hashtron predicts one bit)
-		} else if f.GetLastCells() > 1 {
+		if f.GetLastCells() > 1 {
 			if f.preadd[l] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
 			}
@@ -700,6 +740,18 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				weight = -1
 			}
 			tally.AddToCorrect(ifeature, weight, changed)
+			// Single-cell binary classification (one hashtron predicts 0 or 1)
+		} else if f.mapping[l] == 1 {
+			if f.preadd[l] == preAddition {
+				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
+			}
+			if f.preadd[l] == interAddition {
+				in = &inferPreaddBase{add: preadd_input, in: in, base: 0}
+			}
+			preadd_input = in
+			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
+			changed := actual[0] != (output.Feature(0)&1 != 0)
+			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
 			// Multi-class mapping (one hashtron predicts multiple classes)
 		} else {
 			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))

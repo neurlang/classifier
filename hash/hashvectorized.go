@@ -1,4 +1,5 @@
 //go:build !noasm && amd64
+
 package hash
 
 import "github.com/klauspost/cpuid/v2"
@@ -40,8 +41,7 @@ func hashAVX512VectorizedDistinct(out []uint32, n []uint32, s []uint32, max []ui
 	//}
 }
 
-
-var lCPI0_0 = [16]uint32{1,17,3,19,5,21,7,23,9,25,11,27,13,29,15,31,}
+var lCPI0_0 = [16]uint32{1, 17, 3, 19, 5, 21, 7, 23, 9, 25, 11, 27, 13, 29, 15, 31}
 
 func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max, length uint32)
 func hashVectorizedDistinctAVX512(out *uint32, n *uint32, s *uint32, max *uint32, length uint32)

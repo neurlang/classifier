@@ -56,7 +56,7 @@ func (h *Hasher) MustPutUint16(n int, value uint16) {
 	block := n / 30
 	offset := (n % 30) * 2
 	position := n % 30
-	
+
 	if h.data[block][2+offset] != 0 {
 		panic("uint16 write preexisting data 0")
 	}
@@ -69,7 +69,6 @@ func (h *Hasher) MustPutUint16(n int, value uint16) {
 
 	h.mut.Lock()
 	defer h.mut.Unlock()
-
 
 	var markBytes []byte
 	var pos uint
@@ -98,9 +97,9 @@ func (h *Hasher) MustPutUint16(n int, value uint16) {
 func (h *Hasher) MustPutHash(n int, value [32]byte) {
 	block := n >> 1
 	offset := (n & 1) * 32
-	
+
 	h.mut.Lock()
-	
+
 	var markBytesOwn []byte
 
 	if n&1 == 0 {
@@ -109,7 +108,7 @@ func (h *Hasher) MustPutHash(n int, value [32]byte) {
 		markBytesOwn = h.data[block][62:64]
 	}
 	ownMark := binary.BigEndian.Uint16(markBytesOwn)
-	exists_opposite_hash := ownMark & uint16(1<<15) == uint16(1<<15)
+	exists_opposite_hash := ownMark&uint16(1<<15) == uint16(1<<15)
 	h.mut.Unlock()
 
 	for i := 2; i < 30; i++ {
@@ -122,7 +121,7 @@ func (h *Hasher) MustPutHash(n int, value [32]byte) {
 	h.mut.Lock()
 	defer h.mut.Unlock()
 	if !exists_opposite_hash {
-	
+
 		var markBytesOther []byte
 
 		if n&1 == 0 {
@@ -131,7 +130,7 @@ func (h *Hasher) MustPutHash(n int, value [32]byte) {
 			markBytesOther = h.data[block][0:2]
 		}
 		currentMark := binary.BigEndian.Uint16(markBytesOther)
-		currentMark |= uint16(1<<15)
+		currentMark |= uint16(1 << 15)
 		binary.BigEndian.PutUint16(markBytesOther, currentMark)
 	} else {
 		h.done[block] = struct{}{}

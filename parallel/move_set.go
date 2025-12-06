@@ -6,9 +6,9 @@ import "encoding/binary"
 // MoveSet is a thread-safe set that tracks unique moves for a specific level.
 // When the level changes, all existing moves are cleared to prevent mixing moves from different levels.
 type MoveSet struct {
-	mu    sync.RWMutex   // Synchronizes access to the set and level
+	mu    sync.RWMutex          // Synchronizes access to the set and level
 	set   map[[40]byte]struct{} // Stores serialized moves as keys
-	level byte           // Current level associated with the moves in the set
+	level byte                  // Current level associated with the moves in the set
 }
 
 // NewMoveSet initializes and returns a new MoveSet instance. Initial level is 0.
@@ -58,7 +58,7 @@ func (m *MoveSet) Exists(position [32]byte, move int, level byte) bool {
 func serialize(position [32]byte, move int) [40]byte {
 	var key [40]byte
 	copy(key[:32], position[:])
-	
+
 	// Example serialization using little-endian encoding for the move
 	binary.LittleEndian.PutUint64(key[32:], uint64(move))
 	return key

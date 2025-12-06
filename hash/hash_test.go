@@ -8,7 +8,7 @@ import (
 func BenchmarkHash(b *testing.B) {
 	n := uint32(0)
 	s := uint32(0)
-	for i := uint32(1<<b.N); i > 1; i-- {
+	for i := uint32(1 << b.N); i > 1; i-- {
 		n = Hash(n, s, i)
 		s++
 	}
@@ -38,7 +38,7 @@ func TestHash(t *testing.T) {
 
 // sanity check fuzz
 func FuzzHash(f *testing.F) {
-	f.Add(uint32(0),uint32(0),uint32(0),uint32(0))
+	f.Add(uint32(0), uint32(0), uint32(0), uint32(0))
 	f.Fuzz(func(t *testing.T, n, s, max, constant uint32) {
 		out := Hash(n, s, max)
 		if max == 0 && out != 0 {

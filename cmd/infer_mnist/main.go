@@ -1,6 +1,7 @@
 package main
 
 import "sync/atomic"
+
 //import "fmt"
 //import "runtime"
 //import "math"
@@ -14,9 +15,11 @@ import "github.com/neurlang/classifier/datasets/mnist"
 //import "github.com/neurlang/classifier/learning"
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+
 //import "github.com/neurlang/classifier/layer/sochastic"
 //import "github.com/neurlang/classifier/layer/sum"
 import "github.com/neurlang/classifier/layer/full"
+
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
 import "github.com/neurlang/classifier/parallel"
@@ -34,14 +37,13 @@ func main() {
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
-	
+
 	const classes = 10
 
 	trainslice, testslice, _, _, err := mnist.New()
 	if err != nil {
 		panic(err.Error())
 	}
-
 
 	const fanout1 = 1
 	const fanout2 = 5
@@ -63,7 +65,6 @@ func main() {
 	net.NewCombiner(full.MustNew(fanout2, 1, 1))
 	//net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
 	//net.NewLayerP(1, 4, 1<<16)
-
 
 	evaluate := func() {
 		var percent, errsum atomic.Uint64
@@ -90,7 +91,7 @@ func main() {
 				var io = trainslice[j]
 
 				var predicted = net.Infer2(&io) % classes
-				
+
 				//println(predicted, io.Output())
 				if predicted == io.Output()%net.GetClasses() {
 					percent.Add(1)

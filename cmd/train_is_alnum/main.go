@@ -34,7 +34,6 @@ func main() {
 	// a net with one neuron
 	var net feedforward.FeedforwardNetwork
 	net.NewLayer(1, 0)
-	
 
 	trainWorst := trainer.NewTrainWorstFunc(net, nil, nil, nil,
 		func(worst []int, tally datasets.AnyTally) {
@@ -57,7 +56,7 @@ func main() {
 			})
 			success := 100 * int(percent.Load()) / length
 			println("[success rate]", success, "%", "with", errsum.Load(), "errors")
-			
+
 			if success == 100 {
 				if difficulty > 1000 {
 					println("Max accuracy or wrong data. Exiting")

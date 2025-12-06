@@ -18,7 +18,6 @@ func userHomeDir() string {
 	return dirname + "/"
 }
 
-
 // original
 const ImgSize = 28
 
@@ -63,8 +62,6 @@ func (i *Input) Output() uint16 {
 	return uint16(i.Label)
 }
 
-
-
 func max4(a, b, c, d byte) (o byte) {
 	o = a
 	if b > o {
@@ -83,8 +80,6 @@ func New() (TrainSet []Input, InferSet []Input, SmallTrainSet []SmallInput, Smal
 	var success byte
 	var globalErr error
 
-	
-	
 	const tmpDirectory = `/tmp/mnist/`
 
 	var customDirectory = userHomeDir() + `/go/src/example.com/repo.git/classifier/datasets/mnist/`
@@ -196,7 +191,7 @@ outer:
 				} else {
 					// skip header
 					uncompressedData = uncompressedData[8:]
-					
+
 					for i, lbl := range uncompressedData {
 						if isTrainFile {
 							TrainSet[i].Label = lbl

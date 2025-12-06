@@ -11,9 +11,7 @@ type PreTally struct {
 
 	// global premodulo and salt
 	globalPremodulo, globalSalt uint32
-
 }
-
 
 // Init resets pretally to be empty
 func (d *PreTally) Init() {
@@ -21,7 +19,6 @@ func (d *PreTally) Init() {
 	defer d.mutex.Unlock()
 	d.maps = nil
 }
-
 
 func (t *PreTally) IsGlobalPremodulo() bool {
 	return t.globalPremodulo != 0
@@ -51,7 +48,6 @@ func (d *PreTally) GetCellDecision(position int, feature uint32) (bool, bool) {
 	if position >= len(d.maps) {
 		return false, false
 	}
-
 
 	val, exists := d.maps[position][feature]
 	return val, exists
@@ -111,6 +107,7 @@ func (t *PreTally) GetImprovementPossible() bool {
 	}
 	return false
 }
+
 // AddToCorrect votes for feature which caused the overall result to be correct
 func (t *PreTally) AddToCorrect(feature uint32, vote int8, improvement bool) {
 	t.mutex.Lock()
@@ -121,6 +118,7 @@ func (t *PreTally) AddToCorrect(feature uint32, vote int8, improvement bool) {
 	}
 	t.maps[0][feature] = vote > 0
 }
+
 // AddToImprove votes for feature which caused the overall result to be correct
 func (t *PreTally) AddToImprove(feature uint32, vote int8) {
 	t.mutex.Lock()
@@ -131,6 +129,7 @@ func (t *PreTally) AddToImprove(feature uint32, vote int8) {
 	}
 	t.maps[0][feature] = vote > 0
 }
+
 // AddToMapping adds feature maps to this output votes to mapping
 func (t *PreTally) AddToMapping(feature uint16, output uint64) {
 	// not supported

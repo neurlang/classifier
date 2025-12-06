@@ -1,16 +1,20 @@
 package main
 
 import "sync/atomic"
+
 //import "math"
 //import "math/rand"
 import "flag"
 import "github.com/neurlang/classifier/datasets/mnist"
 import "github.com/neurlang/classifier/datasets"
+
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+
 //import "github.com/neurlang/classifier/layer/sochastic"
 //import "github.com/neurlang/classifier/layer/sum"
 import "github.com/neurlang/classifier/layer/full"
+
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"
 import "github.com/neurlang/classifier/parallel"
@@ -32,14 +36,13 @@ func main() {
 	flag.Parse()
 
 	var improved_success_rate = 0
-	
+
 	const classes = 10
 
 	dataslice, _, _, _, err := mnist.New()
 	if err != nil {
 		panic(err.Error())
 	}
-	
 
 	const fanout1 = 1
 	const fanout2 = 5
@@ -61,7 +64,6 @@ func main() {
 	net.NewCombiner(full.MustNew(fanout2, 1, 1))
 	//net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
 	//net.NewLayerP(1, 4, 1<<16)
-
 
 	trainWorst := trainer.NewTrainWorstFunc(net, nil, nil, nil,
 		func(worst []int, tally datasets.AnyTally) {
@@ -96,7 +98,5 @@ func main() {
 		net.ReadZlibWeightsFromFile(*srcmodel)
 	}
 	trainer.NewLoopFunc(net, &improved_success_rate, 100, evaluate, trainWorst)()
-
-
 
 }

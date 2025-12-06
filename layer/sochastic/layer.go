@@ -4,15 +4,15 @@ package sochastic
 import "github.com/neurlang/classifier/layer"
 
 type SochasticLayer struct {
-	size int
+	size    int
 	maxbits byte
-	seed uint32
+	seed    uint32
 }
 
 type Sochastic struct {
-	vec []bool
+	vec     []bool
 	maxbits byte
-	seed uint32
+	seed    uint32
 }
 
 // MustNew creates a new full layer with size and bits

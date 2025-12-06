@@ -1,6 +1,7 @@
 package main
 
 import "sync/atomic"
+
 //import "fmt"
 //import "runtime"
 //import "math"
@@ -25,15 +26,13 @@ func main() {
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
-	
+
 	const classes = 10
 
 	dataset := isalnum.Dataslice{}
 
-
 	var net feedforward.FeedforwardNetwork
 	net.NewLayer(1, 0)
-
 
 	evaluate := func() {
 		var percent, errsum atomic.Uint64

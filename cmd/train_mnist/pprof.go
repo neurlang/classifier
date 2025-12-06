@@ -17,19 +17,18 @@ func init() {
 			// Start a goroutine to handle the signals
 			go func() {
 				// These 4 lines simply collect profile data into default.pgo file
-		 		f, _ := os.Create("default.pgo")
+				f, _ := os.Create("default.pgo")
 				pprof.StartCPUProfile(f)
 				// Wait for a signal
 				<-sigChan
 				pprof.StopCPUProfile()
 				f.Close()
-				
+
 				os.Exit(130)
 				return
 			}()
-			
+
 			return
 		}
 	}
 }
-

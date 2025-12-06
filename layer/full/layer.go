@@ -4,14 +4,14 @@ package full
 import "github.com/neurlang/classifier/layer"
 
 type FullLayer struct {
-	size int
-	bits byte
+	size    int
+	bits    byte
 	maxbits byte
 }
 
 type Full struct {
-	vec []bool
-	bits byte
+	vec     []bool
+	bits    byte
 	maxbits byte
 }
 

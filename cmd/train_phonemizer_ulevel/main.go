@@ -50,13 +50,12 @@ func main() {
 
 	const fanout1 = 24
 
-	data := phonemizer_ulevel.NewDataset(*langdir, rev != nil && *rev, fanout1 / 3)
+	data := phonemizer_ulevel.NewDataset(*langdir, rev != nil && *rev, fanout1/3)
 
 	if len(data) == 0 {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
 		return
 	}
-
 
 	const fanout2 = 1
 	const fanout3 = 4
@@ -67,7 +66,7 @@ func main() {
 	for i := 0; i < fanout3; i++ {
 		net.NewCombiner(crossattention.MustNew3(fanout1, fanout2))
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
-		net.NewCombiner(sochastic.MustNew(fanout1*fanout2, fanout4 - 8*byte(i), uint32(i)))
+		net.NewCombiner(sochastic.MustNew(fanout1*fanout2, fanout4-8*byte(i), uint32(i)))
 		net.NewLayerPI(fanout1*fanout2, 0, 0)
 	}
 	net.NewCombiner(sochastic.MustNew(fanout1*fanout2, fanout4, fanout3))

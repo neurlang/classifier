@@ -43,17 +43,16 @@ func (d Datamap) Split() (o SplittedDataset) {
 		bits |= v
 	}
 	for k, v := range d {
-		for i := uint16(0); (1<<i) < bits; i++ {
-			if (v >> i) & 1 == 1 {
-				o[1][uint32(k) | uint32(i) << 16] = struct{}{}
+		for i := uint16(0); (1 << i) < bits; i++ {
+			if (v>>i)&1 == 1 {
+				o[1][uint32(k)|uint32(i)<<16] = struct{}{}
 			} else {
-				o[0][uint32(k) | uint32(i) << 16] = struct{}{}
+				o[0][uint32(k)|uint32(i)<<16] = struct{}{}
 			}
 		}
 	}
 	return
 }
-
 
 // Reduce reduces the datamap
 func (d Datamap) Reduce(whole bool) (o Datamap) {
@@ -67,7 +66,7 @@ func (d Datamap) Reduce(whole bool) (o Datamap) {
 		arr = append(arr, v)
 		exists[v] = struct{}{}
 	}
-	sort.Slice(arr, func (i, j int) bool {
+	sort.Slice(arr, func(i, j int) bool {
 		return arr[i] < arr[j]
 	})
 	if whole {

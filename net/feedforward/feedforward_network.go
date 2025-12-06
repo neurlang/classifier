@@ -415,7 +415,7 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l int, worstneg 
 			if int(j) == worst {
 				computed[0] = bit&1 != 0
 			}
-			if int(j)  == worst1 {
+			if int(j) == worst1 {
 				computed[1] = bit&1 != 0
 			}
 		}
@@ -470,7 +470,7 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 			return hammingDist
 		}
 	}
-	
+
 	// Single-cell
 	mask := uint32((1 << f.GetLastCells()) - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
@@ -609,14 +609,14 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 					xorBits >>= 1
 				}
 			}
-			
+
 			// Check if we're already perfect
 			if hammingDists[0] == 0 {
 				// Perfect match - reinforce the current state
 				tally.AddToCorrect(ifw, compute[0], false)
 				return
 			}
-			
+
 			// Check if flipping this neuron makes any difference
 			if hammingDists[0] == hammingDists[1] {
 				// Flipping doesn't change the output at all
@@ -629,7 +629,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				// we are correct anyway
 				return
 			}
-			
+
 			if !less(predicted[0], predicted[1]) && !less(predicted[1], predicted[0]) {
 				// can't change
 				return
@@ -672,7 +672,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				return
 			}
 		}
-		
+
 		// Use AddToCorrect to train towards the better direction
 		weight := compute[betterNeg]
 		if f.GetLastCells() > 1 {
@@ -719,19 +719,19 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			}
 			preadd_input = in
 			fw, _ := f.Forward(in, l, f.GetPosition(worst), 0)
-			
+
 			// Get expected and actual values
 			expectedValue := output.Feature(0)
 			var actualValue uint32
 			for j := byte(0); j < f.GetLastCells(); j++ {
 				actualValue |= (fw.Feature(int(j)) & 1) << j
 			}
-			
+
 			// Get the specific bit for this hashtron
 			expectedBit := (expectedValue >> worstPos) & 1
 			actualBit := (actualValue >> worstPos) & 1
 			changed := expectedBit != actualBit
-			
+
 			// Train this bit towards the correct value
 			// Use simple +1/-1 weight based on expected bit value
 			weight := int8(1)
@@ -739,7 +739,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 				weight = -1
 			}
 			tally.AddToCorrect(ifeature, weight, changed)
-		// Single-cell binary classification (one hashtron predicts 0 or 1)
+			// Single-cell binary classification (one hashtron predicts 0 or 1)
 		} else if f.mapping[l] == 1 {
 			if f.preadd[l] == preAddition {
 				in = &inferPreaddBase{add: origin, in: in, base: f.GetFrontOffset(l)}
@@ -751,7 +751,7 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			_, actual := f.Forward(in, l, f.GetPosition(worst), 0)
 			changed := actual[0] != (output.Feature(0)&1 != 0)
 			tally.AddToCorrect(ifeature, 2*int8(output.Feature(0)&1)-1, changed)
-		// Multi-class mapping (one hashtron predicts multiple classes)
+			// Multi-class mapping (one hashtron predicts multiple classes)
 		} else {
 			tally.AddToMapping(uint16(ifeature), uint64(output.Feature(0)))
 		}
@@ -842,7 +842,6 @@ func (f *FeedforwardNetwork) PreTally4(io FeedforwardNetworkParityInOutput, wors
 		}
 	}
 
-	
 	// Single-cell
 	mask := uint32((1 << f.GetBits()) - 1)
 	out := uint32(io.Output()^io.Parity()) & mask
@@ -881,7 +880,7 @@ func (f *FeedforwardNetwork) preTally2(in, output FeedforwardNetworkInput, worst
 func (f *FeedforwardNetwork) preTally(in, output FeedforwardNetworkInput, worst [2]int, dist datasets.AnyTally, less func(i, j FeedforwardNetworkInput) bool) {
 	l := f.GetLayer(worst[0])
 	l2 := f.GetLayer(worst[1])
-	
+
 	// For multi-bit outputs, check if current prediction is already perfect
 	// Skip training hidden layers on perfect samples to prevent recoil
 	if f.GetLastCells() > 1 {
@@ -898,20 +897,20 @@ func (f *FeedforwardNetwork) preTally(in, output FeedforwardNetworkInput, worst 
 			currentPreadd = currentIn
 			currentIn, _ = f.Forward(currentIn, l_prev, -1, 0)
 		}
-		
+
 		// Check if current output matches expected
 		expectedValue := output.Feature(0)
 		var actualValue uint32
 		for j := byte(0); j < f.GetLastCells(); j++ {
 			actualValue |= (currentIn.Feature(int(j)) & 1) << j
 		}
-		
+
 		// If perfect match, skip training to prevent recoil
 		if actualValue == expectedValue {
 			return
 		}
 	}
-	
+
 	origin := in
 	preadd_input := in
 	if len(f.combiners) > l+1 && f.combiners[l+1] != nil {

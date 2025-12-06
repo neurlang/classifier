@@ -22,9 +22,9 @@ type Loop int
 // The loop stops if i reaches math.MaxUint32 or any goroutine's yield returns true.
 func (l Loop) LoopUntil(yield func(i uint32, ender LoopStopper) bool) {
 	var (
-		i     uint32              // Atomic counter for the current index.
-		ender atomic.Bool         // Atomic boolean to signal stop.
-		wg    sync.WaitGroup      // WaitGroup to wait for all goroutines.
+		i     uint32         // Atomic counter for the current index.
+		ender atomic.Bool    // Atomic boolean to signal stop.
+		wg    sync.WaitGroup // WaitGroup to wait for all goroutines.
 	)
 
 	// Start 'l' goroutines.

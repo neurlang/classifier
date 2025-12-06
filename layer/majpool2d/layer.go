@@ -5,13 +5,13 @@ import "github.com/neurlang/classifier/layer"
 
 type MajPool2DLayer struct {
 	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
-	fixed bool
+	fixed                                                                 bool
 }
 
 type MajPool2D struct {
 	vec                                                                   []bool
 	width, height, subwidth, subheight, capwidth, capheight, repeat, bias int
-	fixed bool
+	fixed                                                                 bool
 }
 
 // MustNew creates a new MajPool2D layer with size, subsize and repeat

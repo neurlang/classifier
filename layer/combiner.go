@@ -1,7 +1,6 @@
 // Package layer defines a custom combiner and layer interface
 package layer
 
-
 // Combiner combines input booleans, stores them internally, and combines them to form output features.
 type Combiner interface {
 
@@ -18,4 +17,3 @@ type Combiner interface {
 	// because the next layer would see the same thing regardless of what we put.
 	Disregard(n int) bool
 }
-

@@ -12,17 +12,17 @@ func TestEvery(t *testing.T) {
 	const fanout2 = 13
 	const fanout3 = 1
 	const fanout4 = 13
-	
+
 	a := MustNew2(1, fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 0)
 
 outer:
 	for {
 
 		var combiner = a.Lay()
-		var q = rand.IntN(fanout1*fanout2*fanout4)
+		var q = rand.IntN(fanout1 * fanout2 * fanout4)
 
 		combiner.Put(q, true)
-		
+
 		println("put at", q)
 
 		for j := 0; j < fanout2; j++ {
@@ -41,7 +41,7 @@ outer2:
 		var q = rand.IntN(fanout2)
 
 		combiner.Put(q, true)
-		
+
 		println("put at", q)
 
 		for j := 0; j < 1; j++ {
@@ -52,17 +52,17 @@ outer2:
 		}
 		panic("repeatingb")
 	}
-	
+
 	c := MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0)
 
 outer3:
 	for {
 
 		var combiner = c.Lay()
-		var q = rand.IntN(fanout1*fanout2*fanout4)
+		var q = rand.IntN(fanout1 * fanout2 * fanout4)
 
 		combiner.Put(q, true)
-		
+
 		println("put at", q)
 
 		for j := 0; j < fanout2; j++ {
@@ -81,7 +81,7 @@ outer4:
 		var q = rand.IntN(fanout2)
 
 		combiner.Put(q, true)
-		
+
 		println("put at", q)
 
 		for j := 0; j < 1; j++ {
@@ -102,10 +102,10 @@ func TestBigPooling(t *testing.T) {
 	const fanout4 = 2
 	a := MustNew2(fanout1*fanout2*fanout4, 1, fanout3, 1, fanout4, 1, 1, 0)
 	var combiner = a.Lay()
-	
+
 	// Define the neuron index to test (neuron [1])
 	neuronIndex := 1
-	
+
 	// Calculate the positions of the three majpooled inputs for neuron [1]
 	// Assuming the inputs are grouped in sets of fanout3 (3 inputs per neuron)
 	inputBase := neuronIndex * fanout2
@@ -125,4 +125,3 @@ func TestBigPooling(t *testing.T) {
 		t.Logf("Neuron [%d] output is %d, as expected", neuronIndex, output)
 	}
 }
-

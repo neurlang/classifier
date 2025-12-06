@@ -57,17 +57,18 @@ func (s *MajPool2D) Feature(m int) (o uint32) {
 			yy = (y + starty) % s.height
 			var w int
 			for my := 0; my < s.subheight; my++ {
-			for mx := 0; mx < s.subwidth; mx++ {
-				pos := base+(submatrix*(s.width*yy+xx))+(s.subwidth*my+mx)
-				if pos >= len(s.vec) {
-					return 0
+				for mx := 0; mx < s.subwidth; mx++ {
+					pos := base + (submatrix * (s.width*yy + xx)) + (s.subwidth*my + mx)
+					if pos >= len(s.vec) {
+						return 0
+					}
+					if (s.vec)[pos] {
+						w++
+					} else {
+						w--
+					}
 				}
-				if (s.vec)[pos] {
-					w++
-				} else {
-					w--
-				}
-			}}
+			}
 			o <<= 1
 			if w > s.bias {
 				o |= 1

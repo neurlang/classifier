@@ -7,13 +7,13 @@ import "sync/atomic"
 type SumLayer struct {
 	size uint
 	step uint
-	dim uint
+	dim  uint
 }
 
 type Sum struct {
-	vec []atomic.Bool
+	vec  []atomic.Bool
 	step uint
-	dim uint
+	dim  uint
 }
 
 // MustNew creates a new full layer with size and bits

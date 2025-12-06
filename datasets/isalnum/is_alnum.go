@@ -3,7 +3,7 @@ package isalnum
 
 import "github.com/neurlang/classifier/datasets"
 
-type Dataslice struct {}
+type Dataslice struct{}
 
 func (d Dataslice) Get(n int) Sample {
 	return Sample(n)
@@ -17,12 +17,12 @@ func (d Dataslice) Set() (set datasets.Dataset) {
 	set.Init()
 	// Loop through ASCII characters
 	for i := 0; i < d.Len(); i++ {
-		set[d.Get(i).Feature(0)] = d.Get(i).Output() ^ d.Get(i).Parity() != 0
+		set[d.Get(i).Feature(0)] = d.Get(i).Output()^d.Get(i).Parity() != 0
 	}
 	return
 }
-type Sample rune
 
+type Sample rune
 
 func (c Sample) Feature(_ int) uint32 {
 	return uint32(c)

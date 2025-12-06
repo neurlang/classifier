@@ -7,8 +7,10 @@ import "sync/atomic"
 import "flag"
 import "github.com/neurlang/classifier/datasets/squareroot"
 import "github.com/neurlang/classifier/datasets"
+
 //import "github.com/neurlang/classifier/layer/conv2d"
 import "github.com/neurlang/classifier/layer/majpool2d"
+
 //import "github.com/neurlang/classifier/layer/full"
 //import "github.com/neurlang/classifier/hashtron"
 import "github.com/neurlang/classifier/net/feedforward"

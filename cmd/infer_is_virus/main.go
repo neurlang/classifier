@@ -1,6 +1,7 @@
 package main
 
 import "sync/atomic"
+
 //import "fmt"
 //import "runtime"
 //import "math"
@@ -26,7 +27,7 @@ func main() {
 	flag.Bool("pgo", false, "enable pgo")
 	resume := flag.Bool("resume", false, "resume training")
 	flag.Parse()
-	
+
 	dataset := isvirus.Dataslice{}
 
 	const fanout1 = 1
@@ -44,7 +45,6 @@ func main() {
 	net.NewLayerP(fanout1*fanout2, 0, 1<<fanout2)
 	net.NewCombiner(majpool2d.MustNew2(fanout2, 1, fanout1, 1, fanout2, 1, 1, 0))
 	net.NewLayer(1, 0)
-
 
 	evaluate := func() {
 		var percent, errsum atomic.Uint64

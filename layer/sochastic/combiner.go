@@ -12,7 +12,7 @@ func (f *Sochastic) Put(n int, v bool) {
 func (f *Sochastic) Feature(n int) (o uint32) {
 	for pos := 0; pos < int(f.maxbits); pos++ {
 		o <<= 1
-		if f.vec[hash.Hash(f.seed ^ uint32(n), uint32(pos), uint32(len(f.vec)))] {
+		if f.vec[hash.Hash(f.seed^uint32(n), uint32(pos), uint32(len(f.vec)))] {
 			o |= 1
 		}
 	}

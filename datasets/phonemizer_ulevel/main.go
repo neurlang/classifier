@@ -106,7 +106,7 @@ func NewDataset(dir string, reverse bool, slots int) (out []Sample) {
 	if err != nil {
 		panic(err.Error())
 	}
-	defer file.Close()	
+	defer file.Close()
 
 	dedup := make(map[[2]string]struct{})
 	collisions := make(map[[2]string][][2]string)
@@ -191,7 +191,6 @@ func NewDataset(dir string, reverse bool, slots int) (out []Sample) {
 	return out
 }
 
-
 // tokenHash normalizes token -> [1..0xFFFFFFFF], PAD is 0
 func tokenHash(token string) uint32 {
 	// first-level string hash
@@ -210,7 +209,7 @@ func charToUint32(r rune) uint32 {
 // makeSubsampleForCandidate builds a Subsample for target position i and a given candidate string
 // sample: Sample utterance; i: target index; candidate: spoken candidate for target; label: true if gold
 // slots: number of slots used (e.g., 8)
-func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negativesCount int, slots int) (*Subsample) {
+func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negativesCount int, slots int) *Subsample {
 	if i < 0 || i >= len(sample.Src) {
 		panic("target index out of range")
 	}
@@ -230,9 +229,8 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 	runes := []rune(fullSrc)
 	for j, r := range runes {
 		slot := j % slots
-		s.Q[slot] = tokenHash(string(r))  // Hash each individual rune
+		s.Q[slot] = tokenHash(string(r)) // Hash each individual rune
 	}
-
 
 	// 2) K/V accumulation across entire utterance (cyclic-add fold)
 	for t := 0; t < len(sample.Src); t++ {
@@ -291,7 +289,7 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 // V1 returns all subsamples for a sample according to default policy
 // default: for each position i emit gold subsample (label true) and negatives that are higher-priority than gold
 // Uses Sample.Values if available, otherwise relies on provided candidates map
-func (sample *Sample) V1() ([]*Subsample) {
+func (sample *Sample) V1() []*Subsample {
 	slots := sample.Slots
 	var out []*Subsample
 	M := len(sample.Src)
@@ -326,7 +324,7 @@ func (sample *Sample) V1() ([]*Subsample) {
 		goldSub.Label = true
 		out = append(out, goldSub)
 
-		//if strings.Join(sample.Src, "") == "sledujte" { 
+		//if strings.Join(sample.Src, "") == "sledujte" {
 		//	fmt.Println(sample.Src, sample.Dst, goldSub.Q, goldSub.K, goldSub.V, goldSub.Label)
 		//}
 
@@ -337,7 +335,7 @@ func (sample *Sample) V1() ([]*Subsample) {
 			if sub != nil {
 				out = append(out, sub)
 
-				//if strings.Join(sample.Src, "") == "sledujte" { 
+				//if strings.Join(sample.Src, "") == "sledujte" {
 				//	fmt.Println(sample.Src, sample.Dst, sub.Q, sub.K, sub.V, sub.Label)
 				//}
 			}
@@ -379,7 +377,7 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 	runes := []rune(fullSrc)
 	for j, r := range runes {
 		slot := j % slots
-		s.Q[slot] = tokenHash(string(r))  // Hash each individual rune
+		s.Q[slot] = tokenHash(string(r)) // Hash each individual rune
 	}
 
 	// --- 2) K/V accumulation across utterance
@@ -409,4 +407,3 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 
 	return &s
 }
-

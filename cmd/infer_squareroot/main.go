@@ -48,7 +48,7 @@ func main() {
 	net.NewLayerP(fanout1*fanout2*squareroot.MediumClasses, 0, 1<<fanout2)
 	net.NewCombiner(majpool2d.MustNew2(squareroot.MediumClasses*fanout2, 1, fanout1, 1, squareroot.MediumClasses*fanout2, 1, 1, 0))
 	net.NewLayer(squareroot.MediumClasses, 0)
-	
+
 	evaluate := func() {
 		var percent, errsum atomic.Uint64
 		parallel.ForEach(len(dataset), 1000, func(j int) {

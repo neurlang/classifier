@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
-	"slices"
 
 	"github.com/neurlang/classifier/hash"
 
 	"github.com/neurlang/NumToWordsGo/NumToWords"
 )
-
 
 // Sample is one sentence
 type Sample struct {

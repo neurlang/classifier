@@ -7,7 +7,7 @@ import rand "math/rand"
 func (f FeedforwardNetwork) Sequence(reverse bool) (o []int) {
 
 	// pick random layer of hashtrons
-	n := 2*rand.Intn(f.LenHashtronLayers())
+	n := 2 * rand.Intn(f.LenHashtronLayers())
 
 	o = make([]int, 0, f.Len())
 	if reverse {
@@ -34,7 +34,7 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	var initial_l = f.GetFrontLayer(rand.Intn(f.LenFrontLayers()))
 	// Initialize base to account for the starting index of each layer
 	base := f.GetFrontBase(initial_l)
-	
+
 	// Traverse through each layer and select a random parent neuron
 	for i := initial_l; i < f.LenLayers(); i++ {
 		if len(f.layers[i]) == 0 {

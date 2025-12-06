@@ -6,13 +6,13 @@ import "github.com/neurlang/classifier/layer"
 
 type Conv2DLayer struct {
 	width, height, subwidth, subheight, repeat int
-	shift int
+	shift                                      int
 }
 
 type Conv2D struct {
-	vec []bool
+	vec                                        []bool
 	width, height, subwidth, subheight, repeat int
-	shift int
+	shift                                      int
 }
 
 // MustNew creates a new Conv2D layer with size, subsize and repeat
@@ -23,6 +23,7 @@ func MustNew(width, height, subwidth, subheight, repeat int) *Conv2DLayer {
 	}
 	return o
 }
+
 // New creates a new Conv2D layer with size, subsize and repeat
 func New(width, height, subwidth, subheight, repeat int) (o *Conv2DLayer, err error) {
 	return New2(width, height, subwidth, subheight, repeat, 0)
@@ -36,6 +37,7 @@ func MustNew2(width, height, subwidth, subheight, repeat int, shift int) *Conv2D
 	}
 	return o
 }
+
 // New/ creates a new Conv2D layer with size, subsize and repeat
 func New2(width, height, subwidth, subheight, repeat int, shift int) (o *Conv2DLayer, err error) {
 	if width < subwidth {
@@ -55,9 +57,9 @@ func New2(width, height, subwidth, subheight, repeat int, shift int) (o *Conv2DL
 }
 
 // Lay turns Conv2D layer into a combiner
-func (i *Conv2DLayer) Lay() (layer.Combiner) {
+func (i *Conv2DLayer) Lay() layer.Combiner {
 	var o Conv2D
-	o.vec = make([]bool, i.width * i.height * i.repeat)
+	o.vec = make([]bool, i.width*i.height*i.repeat)
 	o.width = i.width
 	o.height = i.height
 	o.subwidth = i.subwidth

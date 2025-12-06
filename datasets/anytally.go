@@ -29,6 +29,7 @@ type AnyTally interface {
 }
 
 type TallyType byte
+
 const PreTallyType TallyType = 2
 const FinTallyType TallyType = 1
 

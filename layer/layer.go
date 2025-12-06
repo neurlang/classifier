@@ -6,4 +6,3 @@ type Layer interface {
 	// Lay creates a combiner
 	Lay() Combiner
 }
-

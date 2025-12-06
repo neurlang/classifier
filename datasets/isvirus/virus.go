@@ -3,7 +3,7 @@ package isvirus
 
 import "github.com/neurlang/classifier/datasets/stringhash"
 
-type Dataslice struct {}
+type Dataslice struct{}
 
 func (_ Dataslice) Get(n int) Sample {
 	if len(virus) <= n {
@@ -36,8 +36,8 @@ func (s BalancedSample) Parity() uint16 {
 func (s Sample) Balance() BalancedSample {
 	return BalancedSample{
 		BalancedSample: stringhash.BalancedSample{
-				Str: s.Str,
-				Out: s.Out,
+			Str: s.Str,
+			Out: s.Out,
 		},
 	}
 }

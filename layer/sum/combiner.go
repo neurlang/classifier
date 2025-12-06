@@ -12,7 +12,7 @@ func (f *Sum) Feature(n int) (o uint32) {
 	n *= int(f.dim)
 	// Calculate sum using precomputed initial + j*step
 	for j := uint(0); j < f.dim; j++ {
-		if f.vec[(uint(n) + j * f.step) % uint(len(f.vec))].Load() {
+		if f.vec[(uint(n)+j*f.step)%uint(len(f.vec))].Load() {
 			o++
 		}
 	}

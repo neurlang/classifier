@@ -13,7 +13,7 @@ import (
 
 	"github.com/neurlang/classifier/hash"
 
-	"github.com/neurlang/NumToWordsGo/NumToWords"
+	"github.com/yousifnimah/NumToWordsGo/NumToWords"
 )
 
 // Sample is one sentence

@@ -1,8 +1,10 @@
-github.com/klauspost/cpuid/v2 v2.2.8 h1:+StwCXwm9PdpiEkPyzBXIy+M9KUb4ODm0Zarf1kS5BM=
-github.com/klauspost/cpuid/v2 v2.2.8/go.mod h1:Lcz8mBdAVJIBVzewtcLocK12l3Y+JytZYpaMropDUws=
-github.com/neurlang/NumToWordsGo v0.0.0-20250407021724-7b23483906ba h1:J4Va/KRy48MHEx0tCzaSPmk6pOVpUr0fxDc8P71qFgU=
-github.com/neurlang/NumToWordsGo v0.0.0-20250407021724-7b23483906ba/go.mod h1:CGbQKJZ89UJH2dtv2phUGy8iqAa2zwom3KdWpADVfZQ=
-github.com/neurlang/quaternary v0.1.1 h1:9pF/dTDM+KWHuDTlv0AN1RTS30Q3ekys1B0nNRU8f0w=
-github.com/neurlang/quaternary v0.1.1/go.mod h1:yP32mjSy4ataxp2pwQ+RXUQoD0byfW50vzBjXs8GY5Y=
+github.com/klauspost/cpuid/v2 v2.2.3 h1:sxCkb+qR91z4vsqw4vGGZlDgPz3G7gjaLyK3V8y70BU=
+github.com/klauspost/cpuid/v2 v2.2.3/go.mod h1:RVVoqg1df56z8g3pUjL/3lE5UfnlrJX8tyFgg4nqhuY=
+github.com/minio/sha256-simd v1.0.1 h1:6kaan5IFmwTNynnKKpDHe6FWHohJOHhCPchzK49dzMM=
+github.com/neurlang/quaternary v0.2.4 h1:ITmuGIZvwIpMm/ZZC6SfZlOaCJfS3YMg0ttdU3wOBNg=
+github.com/neurlang/quaternary v0.2.4/go.mod h1:5ljAzCe6Udiox2BieFnce/egIMH42tAZLdNZ0i1edmk=
+github.com/yousifnimah/NumToWordsGo v1.2.1-0.20250718172819-1ac7996932f0 h1:14oeqn2N1H+9qogGilYtkgj9vO0bK4J+QubSRiJwkPo=
+github.com/yousifnimah/NumToWordsGo v1.2.1-0.20250718172819-1ac7996932f0/go.mod h1:FQd6ynIPGkgraIwP21JBzGTGSO8xdkW6YDOcLJ3G7lE=
+golang.org/x/sys v0.0.0-20220704084225-05e143d24a9e/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.5.0 h1:MUK/U/4lj1t1oPg0HfuXDN/Z1wv31ZJ/YcPiGccS4DU=
 golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

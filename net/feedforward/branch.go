@@ -34,7 +34,7 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 	var initial_l = f.GetFrontLayer(rand.Intn(f.LenFrontLayers()))
 	// Initialize base to account for the starting index of each layer
 	base := f.GetFrontBase(initial_l)
-
+	
 	// Traverse through each layer and select a random parent neuron
 	for i := initial_l; i < f.LenLayers(); i++ {
 		if len(f.layers[i]) == 0 {
@@ -122,8 +122,15 @@ func (f FeedforwardNetwork) Branch(reverse bool) (o []int) {
 			}
 
 		} else if !reverse {
-			// Select last neuron
-			o = append(o, base+ii)
+			if f.GetLastCells() <= 1 {
+				// Select last neuron
+				o = append(o, base+ii)
+			} else {
+				// Multi-bit output: add all cells so all bits get trained
+				for j := 0; j < int(f.GetLastCells()); j++ {
+					o = append(o, base+j)
+				}
+			}
 		}
 		// Update the base index to the start of the current layer
 		base += len(f.layers[i])

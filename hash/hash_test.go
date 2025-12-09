@@ -56,3 +56,164 @@ func FuzzHash(f *testing.F) {
 		}
 	})
 }
+
+// TestHashVectorized verifies that HashVectorized produces the same results as multiple Hash() calls
+func TestHashVectorized(t *testing.T) {
+	testCases := []struct {
+		name string
+		size int
+	}{
+		{"single", 1},
+		{"small", 8},
+		{"medium", 16},
+		{"large", 64},
+		{"odd", 17},
+		{"prime", 31},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size := tc.size
+			n := make([]uint32, size)
+			s := make([]uint32, size)
+			out := make([]uint32, size)
+			expected := make([]uint32, size)
+
+			// Fill with test data
+			for i := 0; i < size; i++ {
+				n[i] = uint32(i*123 + 456)
+				s[i] = uint32(i*789 + 101112)
+			}
+
+			max := uint32(1000000)
+
+			// Compute expected results using Hash()
+			for i := 0; i < size; i++ {
+				expected[i] = Hash(n[i], s[i], max)
+			}
+
+			// Compute using HashVectorized
+			HashVectorized(out, n, s, max)
+
+			// Compare results
+			for i := 0; i < size; i++ {
+				if out[i] != expected[i] {
+					t.Errorf("HashVectorized mismatch at index %d: got %d, want %d (n=%d, s=%d, max=%d)",
+						i, out[i], expected[i], n[i], s[i], max)
+				}
+			}
+		})
+	}
+}
+
+// TestHashVectorizedDistinct verifies that HashVectorizedDistinct produces the same results as multiple Hash() calls
+func TestHashVectorizedDistinct(t *testing.T) {
+	testCases := []struct {
+		name string
+		size int
+	}{
+		{"single", 1},
+		{"small", 8},
+		{"medium", 16},
+		{"large", 64},
+		{"odd", 17},
+		{"prime", 31},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size := tc.size
+			n := make([]uint32, size)
+			s := make([]uint32, size)
+			max := make([]uint32, size)
+			out := make([]uint32, size)
+			expected := make([]uint32, size)
+
+			// Fill with test data - each element has different max
+			for i := 0; i < size; i++ {
+				n[i] = uint32(i*123 + 456)
+				s[i] = uint32(i*789 + 101112)
+				max[i] = uint32((i+1) * 50000)
+			}
+
+			// Compute expected results using Hash()
+			for i := 0; i < size; i++ {
+				expected[i] = Hash(n[i], s[i], max[i])
+			}
+
+			// Compute using HashVectorizedDistinct
+			HashVectorizedDistinct(out, n, s, max)
+
+			// Compare results
+			for i := 0; i < size; i++ {
+				if out[i] != expected[i] {
+					t.Errorf("HashVectorizedDistinct mismatch at index %d: got %d, want %d (n=%d, s=%d, max=%d)",
+						i, out[i], expected[i], n[i], s[i], max[i])
+				}
+			}
+		})
+	}
+}
+
+// TestHashVectorizedEdgeCases tests edge cases for vectorized hash functions
+func TestHashVectorizedEdgeCases(t *testing.T) {
+	t.Run("zero_max", func(t *testing.T) {
+		n := []uint32{1, 2, 3, 4}
+		s := []uint32{5, 6, 7, 8}
+		out := make([]uint32, 4)
+		expected := make([]uint32, 4)
+
+		max := uint32(0)
+		for i := range n {
+			expected[i] = Hash(n[i], s[i], max)
+		}
+
+		HashVectorized(out, n, s, max)
+
+		for i := range out {
+			if out[i] != expected[i] {
+				t.Errorf("zero_max: index %d: got %d, want %d", i, out[i], expected[i])
+			}
+		}
+	})
+
+	t.Run("max_uint32", func(t *testing.T) {
+		n := []uint32{1, 2, 3, 4}
+		s := []uint32{5, 6, 7, 8}
+		out := make([]uint32, 4)
+		expected := make([]uint32, 4)
+
+		max := uint32(0xFFFFFFFF)
+		for i := range n {
+			expected[i] = Hash(n[i], s[i], max)
+		}
+
+		HashVectorized(out, n, s, max)
+
+		for i := range out {
+			if out[i] != expected[i] {
+				t.Errorf("max_uint32: index %d: got %d, want %d", i, out[i], expected[i])
+			}
+		}
+	})
+
+	t.Run("distinct_zero_max", func(t *testing.T) {
+		n := []uint32{1, 2, 3, 4}
+		s := []uint32{5, 6, 7, 8}
+		max := []uint32{0, 100, 0, 200}
+		out := make([]uint32, 4)
+		expected := make([]uint32, 4)
+
+		for i := range n {
+			expected[i] = Hash(n[i], s[i], max[i])
+		}
+
+		HashVectorizedDistinct(out, n, s, max)
+
+		for i := range out {
+			if out[i] != expected[i] {
+				t.Errorf("distinct_zero_max: index %d: got %d, want %d", i, out[i], expected[i])
+			}
+		}
+	})
+}

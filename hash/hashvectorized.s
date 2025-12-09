@@ -4,12 +4,12 @@
 
 
 // func hashVectorizedAVX512(out *uint32, n *uint32, s *uint32, max uint32, length uint32)
-TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-40
+TEXT ·hashVectorizedAVX512(SB), NOSPLIT, $0-32
     MOVQ out+0(FP), DI
     MOVQ n+8(FP), SI
     MOVQ s+16(FP), CX
     MOVL max+24(FP), R8
-    MOVL len+28(FP), DX
+    MOVL length+28(FP), DX
 
     // Preserve length for bounds checking
     MOVL DX, R9
@@ -131,12 +131,12 @@ end_loop:
 
 
 // func hashVectorizedDistinctAVX512(out *uint32, n *uint32, s *uint32, max *uint32, length uint32)
-TEXT ·hashVectorizedDistinctAVX512(SB), NOSPLIT, $0-40
+TEXT ·hashVectorizedDistinctAVX512(SB), NOSPLIT, $0-36
     MOVQ out+0(FP), DI
     MOVQ n+8(FP), SI
     MOVQ s+16(FP), CX
     MOVQ max+24(FP), R8  // Load max array pointer
-    MOVL len+32(FP), DX   // Load length from correct offset
+    MOVL length+32(FP), DX   // Load length from correct offset
 
     // Preserve length for bounds checking
     MOVL DX, R9

@@ -25,7 +25,6 @@ func init() {
 				f.Close()
 
 				os.Exit(130)
-				return
 			}()
 
 			return

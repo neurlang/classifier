@@ -201,11 +201,6 @@ func tokenHash(token string) uint32 {
 	return h1 + 1
 }
 
-// charToUint32 returns raw Unicode codepoint as uint32
-func charToUint32(r rune) uint32 {
-	return uint32(r)
-}
-
 // makeSubsampleForCandidate builds a Subsample for target position i and a given candidate string
 // sample: Sample utterance; i: target index; candidate: spoken candidate for target; label: true if gold
 // slots: number of slots used (e.g., 8)

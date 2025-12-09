@@ -264,18 +264,6 @@ func (f FeedforwardNetwork) IsMapLayerOf(n int) bool {
 	return f.mapping[f.GetLayer(n)] > 0
 }
 
-// Infer3 infers the network output based on input, after being trained by using Tally3
-func (f FeedforwardNetwork) infer3(input FeedforwardNetworkParityInput) (ouput FeedforwardNetworkInput) {
-	in := f.infer(FeedforwardNetworkInput(input))
-	if input.Parity() {
-		return tally3io{
-			par: input,
-			out: in,
-		}
-	}
-	return in
-}
-
 type inferPreaddBase struct {
 	add  FeedforwardNetworkInput
 	base int
@@ -430,18 +418,6 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l int, worstneg 
 	}
 }
 
-type tally3io struct {
-	par FeedforwardNetworkParityInput
-	out FeedforwardNetworkInput
-}
-
-func (io tally3io) Feature(n int) uint32 {
-	if io.par.Parity() {
-		return io.out.Feature(n) ^ 1
-	}
-	return io.out.Feature(n)
-}
-
 type tally4io struct {
 	io    FeedforwardNetworkParityInOutput
 	shift int
@@ -488,21 +464,6 @@ func (f *FeedforwardNetwork) Tally4(io FeedforwardNetworkParityInOutput, worst i
 	})
 }
 
-// Tally3 tallies the network like Tally2, except it can also balance the dataset using input parity bit.
-// Loss is 0 if the output is correct, below or equal to maxloss otherwise.
-func (f *FeedforwardNetwork) tally3(in FeedforwardNetworkParityInput, output FeedforwardNetworkInput,
-	worst int, tally datasets.AnyTally, loss func(i FeedforwardNetworkInput) uint32) {
-	if in.Parity() {
-		output = tally3io{
-			par: in,
-			out: output,
-		}
-	}
-	f.tally(in, output, worst, tally, func(i, j FeedforwardNetworkInput) bool {
-		return loss(i) < loss(j)
-	})
-}
-
 // Tally2 tallies the network like Tally, except it can also optimize n-way classifiers. Loss is 0 if the
 // output is correct, below or equal to maxloss otherwise.
 func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst int, tally datasets.AnyTally,
@@ -520,7 +481,6 @@ func (f *FeedforwardNetwork) tally2(in, output FeedforwardNetworkInput, worst in
 		//return (loss(i) == 0) && (loss(j) > 0)
 		return loss(i) < loss(j)
 	})
-	return
 }
 
 // Tally tallies the network on input/output pair with respect to to-be-trained worst hashtron.

@@ -11,8 +11,8 @@ func init() {
 			// Create a channel to receive OS signals
 			sigChan := make(chan os.Signal, 1)
 
-			// Notify the channel on SIGINT and SIGKILL
-			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGKILL)
+			// Notify the channel on SIGINT and SIGTERM
+			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 			// Start a goroutine to handle the signals
 			go func() {

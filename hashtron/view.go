@@ -116,7 +116,6 @@ func (h Hashtron) WriteJson(b io.Writer, eol ...byte) error {
 		}
 		if sub == 0 {
 			_, err = b.Write(intToBuf(v[1]))
-			sub = v[1]
 		} else {
 			if sub < v[1] {
 				_, err = b.Write(minu)

@@ -633,9 +633,9 @@ func (f *FeedforwardNetwork) tally(in, output FeedforwardNetworkInput, worst int
 			}
 
 			// Use AddToCorrect to train towards the better direction
-			weight := compute[betterNeg]
 			// Weight by how much better it is (improvement)
 			improvement := hammingDists[1-betterNeg] - hammingDists[betterNeg]
+			var weight int8
 			if improvement > 0 {
 				weight = compute[betterNeg] * improvement
 			} else {

@@ -218,8 +218,6 @@ func (t *Tally) GetCellDecision(position int, feature uint32) (val bool, avail b
 		t.mut.Unlock()
 		return v > 0, avail
 	}
-	t.mut.Unlock()
-	return false, false
 }
 
 // SetCellDecision stores a distilled decision for a specific cell and feature

@@ -428,8 +428,6 @@ func (f FeedforwardNetwork) Forward(in FeedforwardNetworkInput, l int, worstneg 
 		var bit = f.layers[l][0].Forward(in.Feature(0), false)
 		return SingleValue(bit & 1), []bool{(bit & 1) != 0, (bit & 1) != 0}
 	}
-
-	return nil, []bool{false, false}
 }
 
 type tally3io struct {

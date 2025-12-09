@@ -272,5 +272,4 @@ func (h *Hashtron) ReadJson(b io.Reader) error {
 			neg = false
 		}
 	}
-	return nil
 }

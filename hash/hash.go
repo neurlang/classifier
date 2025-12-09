@@ -36,6 +36,9 @@ func StringsHash(in uint32, strs []string) (out uint32) {
 
 func StringHash(in uint32, str string) (out uint32) {
 	out = in
+	// Note: We intentionally convert to []rune to hash full Unicode codepoints,
+	// not individual bytes. This ensures consistent hashing across different
+	// Unicode representations (e.g., combining characters).
 	for _, v := range []rune(str) {
 		out = Hash(out, uint32(v), 0xffffffff)
 	}

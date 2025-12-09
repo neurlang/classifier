@@ -133,7 +133,7 @@ func TestHashVectorizedDistinct(t *testing.T) {
 			for i := 0; i < size; i++ {
 				n[i] = uint32(i*123 + 456)
 				s[i] = uint32(i*789 + 101112)
-				max[i] = uint32((i+1) * 50000)
+				max[i] = uint32((i + 1) * 50000)
 			}
 
 			// Compute expected results using Hash()

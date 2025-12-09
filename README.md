@@ -19,8 +19,7 @@ The framework has been proven in production, including training large-scale tran
 
 ### Prerequisites
 
-- Go 1.13 or higher
-- For CUDA-based learning (optional): Go 1.16+ with CUDA dependencies
+- Go 1.18 or higher
 
 ### Installation
 

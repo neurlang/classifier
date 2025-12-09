@@ -241,13 +241,9 @@ func makeSubsampleForCandidate(sample *Sample, i int, candidate string, negative
 		vh := tokenHash(sample.Dst[t])
 		// if future relative to target, attenuate
 		if t > i {
-			if FUTURE_SHIFT >= 32 {
-				h = 0
-				vh = 0
-			} else {
-				h = h >> FUTURE_SHIFT
-				vh = vh >> FUTURE_SHIFT
-			}
+			// FUTURE_SHIFT is 32, which would clear a uint32 completely
+			h = 0
+			vh = 0
 		}
 		// accumulate with uint32 wrap-around
 		s.K[slot] = s.K[slot] + h
@@ -391,8 +387,8 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 		} else if t == cur {
 			vh = tokenHash(option)
 		} else {
-			// future token → attenuate
-			h >>= FUTURE_SHIFT
+			// future token → attenuate (FUTURE_SHIFT is 32, which clears uint32)
+			h = 0
 			vh = 0 // no option for future at inference
 		}
 

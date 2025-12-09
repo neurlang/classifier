@@ -287,7 +287,7 @@ func (sample *Sample) V1() []*Subsample {
 	for i := 0; i < M; i++ {
 		cands := sample.Values[i]
 		// if no candidates in Values, fallback to the gold only
-		if cands == nil || len(cands) == 0 {
+		if len(cands) == 0 {
 			cands = []string{sample.Dst[i]}
 		}
 		// find gold index in cands

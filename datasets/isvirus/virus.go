@@ -5,7 +5,7 @@ import "github.com/neurlang/classifier/datasets/stringhash"
 
 type Dataslice struct{}
 
-func (_ Dataslice) Get(n int) Sample {
+func (Dataslice) Get(n int) Sample {
 	if len(virus) <= n {
 		n -= len(virus)
 		return Sample(stringhash.Sample{
@@ -18,7 +18,7 @@ func (_ Dataslice) Get(n int) Sample {
 		Out: 1,
 	})
 }
-func (_ Dataslice) Len() int {
+func (Dataslice) Len() int {
 	return len(virus) + len(clean)
 }
 

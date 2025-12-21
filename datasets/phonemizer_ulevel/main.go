@@ -350,9 +350,6 @@ func NewInferenceSubsample(src []string, dst []string, option string, slots int)
 	if cur >= len(src) {
 		panic("NewInferenceSubsample: dst too long (no current position)")
 	}
-	if option == "" {
-		panic("NewInferenceSubsample: option cannot be empty")
-	}
 	if slots <= 0 {
 		slots = 8
 	}

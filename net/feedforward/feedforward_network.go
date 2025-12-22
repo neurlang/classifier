@@ -1,10 +1,12 @@
 // Package feedforward implements a feedforward network type
 package feedforward
 
-import "github.com/neurlang/classifier/hashtron"
-import "github.com/neurlang/classifier/hash"
-import "github.com/neurlang/classifier/layer"
-import "github.com/neurlang/classifier/datasets"
+import (
+	"github.com/neurlang/classifier/datasets"
+	"github.com/neurlang/classifier/hash"
+	"github.com/neurlang/classifier/hashtron"
+	"github.com/neurlang/classifier/layer"
+)
 
 // Intermediate is an intermediate value used as both layer input and layer output in optimization
 type Intermediate interface {
@@ -900,7 +902,13 @@ func (f *FeedforwardNetwork) preTally(in, output FeedforwardNetworkInput, worst 
 			}
 			preadd_input_next := inter
 			var computed []bool
-			inter, computed = f.Forward(inter, l, f.GetPosition(worst[0]), neg&1, f.GetPosition(worst[1]), neg>>1)
+			if l == l2 {
+				// Both worst neurons are on the same layer - pass both positions and negations
+				inter, computed = f.Forward(inter, l, f.GetPosition(worst[0]), neg&1, f.GetPosition(worst[1]), neg>>1)
+			} else {
+				// Neurons are on different layers - only pass the first neuron's position and negation
+				inter, computed = f.Forward(inter, l, f.GetPosition(worst[0]), neg&1)
+			}
 			if computed[0] {
 				compute[0][neg] = true
 			} else {

@@ -24,6 +24,11 @@ func (h Hashtron) Len() int {
 	return len(h.program)
 }
 
+// LenQ gets the size of learned data (size of quaternary filter)
+func (h Hashtron) Len() int {
+	return len(h.quaternary)
+}
+
 // Bits determines the number of output bits returned by hashtron using Forward
 func (h Hashtron) Bits() byte {
 	return h.bits

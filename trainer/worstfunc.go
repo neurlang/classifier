@@ -39,12 +39,42 @@ func NewTrainWorstFunc(net feedforward.FeedforwardNetwork, minpremodulo, premodu
 			return nil
 		}
 
+		var qq = make([][]byte, len(worst))
+
 		fmt.Println("hashtron positions:", worst, "(job size:", tally.Len(), ")")
+
+		// Calculate size check when len(worst) > 1
+		if len(worst) > 1 {
+			var previousSumLenQ int
+			var newSumQ int
+
+			for i, idx := range worst {
+				ptr := net.GetHashtron(idx)
+				previousSumLenQ += ptr.LenQ()
+
+				dset := tally.DatasetAt(i)
+				q := quaternary.Make(dset)
+				newSumQ += len(q)
+
+				qq[i] = q
+			}
+
+			// If new sum is bigger than previous sum, return nil
+			if newSumQ > previousSumLenQ {
+				return nil
+			}
+		} else {
+			// Single hashtron case
+			dset := tally.DatasetAt(0)
+			q := quaternary.Make(dset)
+			qq[0] = q
+		}
+
 		var restoreFns []func()
+
 		for i, idx := range worst {
 			ptr := net.GetHashtron(idx)
-			dset := tally.DatasetAt(i)
-			q := quaternary.Make(dset)
+			q := qq[i]
 
 			pmod := [][2]uint32{}
 			if tally.IsGlobalPremodulo() {

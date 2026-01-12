@@ -25,7 +25,7 @@ func (h Hashtron) Len() int {
 }
 
 // LenQ gets the size of learned data (size of quaternary filter)
-func (h Hashtron) Len() int {
+func (h Hashtron) LenQ() int {
 	return len(h.quaternary)
 }
 

@@ -188,16 +188,37 @@ func (t *Tally) DatasetAt(n int) Dataset {
 func (t *Tally) Dataset() Dataset {
 	var sett Dataset
 	sett.Init()
+
+	var sumImprove int64
+	for _, rating := range t.improve {
+		sumImprove += rating
+	}
+	var avgImprove int64
+	if len(t.improve) > 0 {
+		avgImprove = sumImprove / int64(len(t.improve))
+	}
+
 	// we initialize the set with pairs which improve first
 	for value, rating := range t.improve {
 		if rating != 0 {
-			sett[value] = rating > 0
+			sett[value] = rating > avgImprove
 		}
 	}
+
+
+	var sumCorrect int64
+	for _, rating := range t.correct {
+		sumCorrect += rating
+	}
+	var avgCorrect int64
+	if len(t.correct) > 0 {
+		avgCorrect = sumCorrect / int64(len(t.correct))
+	}
+
 	// finally we overwrite the set with pairs which make it correct
 	for value, rating := range t.correct {
 		if rating != 0 {
-			sett[value] = rating > 0
+			sett[value] = rating > avgCorrect
 		}
 	}
 	return sett

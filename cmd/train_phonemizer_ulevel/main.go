@@ -35,6 +35,7 @@ func main() {
 	flag.Bool("pgo", false, "enable pgo")
 	rev := flag.Bool("reverse", false, "enable reverse training")
 	resume := flag.Bool("resume", false, "resume training")
+	regularize := flag.Bool("regularize", false, "regularize network - make it generalize")
 	flag.Parse()
 
 	var improved_success_rate = 0
@@ -51,6 +52,7 @@ func main() {
 	const fanout1 = 24
 
 	data := phonemizer_ulevel.NewDataset(*langdir, rev != nil && *rev, fanout1/3)
+	eval_data := phonemizer_ulevel.NewDataset(*langdir + "/eval", rev != nil && *rev, fanout1/3)
 
 	if len(data) == 0 {
 		println("it looks like no data for this language, or language is unambiguous (no model needed)")
@@ -88,6 +90,37 @@ func main() {
 		})
 	evaluate := trainer.NewEvaluateFunc(net, len(data), 99, &improved_success_rate, dstmodel,
 		func(length int, h trainer.EvaluateFuncHasher) int {
+
+
+
+			var eval_percent, eval_errsum, eval_total atomic.Uint64
+			parallel.ForEach(len(eval_data), 100, func(j int) {
+
+				var pred uint16
+
+				for i := 0; i < fanout1; i++ {
+					var sample = eval_data[j].V1()
+					for jj := 0; jj < len(sample); jj++ {
+						var io = sample[jj]
+
+						//fmt.Printf("Sample IO %d %d: %v\n", i, jj, sample.IO(jj).SampleSentence.Sample.Sentence)
+
+						var predicted = net.Infer2(io) & 1
+
+						pred += predicted
+
+						if predicted == io.Output() {
+							eval_percent.Add(1)
+						}
+						eval_errsum.Add(uint64(error_abs(uint32(predicted), uint32(io.Output()))))
+						eval_total.Add(1)
+					}
+				}
+			})
+			eval_success := 100 * int(eval_percent.Load()) / int(eval_total.Load())
+			println("[eval success rate]", eval_success, "%", "with", eval_errsum.Load(), "errors")
+
+
 			var percent, errsum, total atomic.Uint64
 			parallel.ForEach(length, 1000, func(j int) {
 
@@ -121,5 +154,11 @@ func main() {
 
 		})
 	trainer.Resume(net, resume, dstmodel)
-	trainer.NewLoopFunc(net, &improved_success_rate, 100, evaluate, trainWorst)()
+
+	reg := 100
+	if regularize != nil && *regularize {
+		reg = 0
+	}
+
+	trainer.NewLoopFunc(net, &improved_success_rate, reg, evaluate, trainWorst)()
 }
